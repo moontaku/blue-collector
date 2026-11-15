@@ -1212,6 +1212,7 @@ function loop(now) {
 }
 
 function startGame() {
+  if (!helpOverlay.hidden) return;
   ensureAudio();
   selectedDifficulty = difficultySelect.value;
   obstacleSpeed = DIFFICULTY_SPEEDS[selectedDifficulty];
@@ -1296,6 +1297,45 @@ window.addEventListener("keyup", (event) => {
     keys[key] = false;
   }
 });
+
+// STEP 6-5.2: 한 번 읽으면 자동으로 다시 뜨지 않는 첫 방문 게임 방법.
+// 기존 코인/기록 저장 키는 변경하지 않습니다.
+const HELP_SEEN_KEY = "blue-collector-help-seen-v1";
+const helpOverlay = document.getElementById("help-overlay");
+const helpOpenButton = document.getElementById("help-start-button");
+const helpCloseButton = document.getElementById("help-close-button");
+const helpDoneButton = document.getElementById("help-done-button");
+let previousHelpFocus = null;
+function openHelp(trigger = null) {
+  if (running || !shopOverlay.hidden || !achievementsOverlay.hidden || !settingsOverlay.hidden) return;
+  previousHelpFocus = trigger || document.activeElement;
+  helpOverlay.hidden = false;
+  helpDoneButton.focus();
+}
+function closeHelp() {
+  if (helpOverlay.hidden) return;
+  helpOverlay.hidden = true;
+  try { localStorage.setItem(HELP_SEEN_KEY, "1"); } catch (_) { /* 스토리지 제한에서도 정상 동작 */ }
+  if (previousHelpFocus && document.contains(previousHelpFocus)) previousHelpFocus.focus();
+  else startButton.focus();
+}
+helpOpenButton.addEventListener("click", () => openHelp(helpOpenButton));
+helpCloseButton.addEventListener("click", closeHelp);
+helpDoneButton.addEventListener("click", closeHelp);
+window.addEventListener("keydown", event => {
+  if (helpOverlay.hidden) return;
+  if (event.key === "Escape") { event.preventDefault(); closeHelp(); }
+  // 게임 키 입력 및 뒤쪽 버튼으로 포커스가 이동하지 않도록 팝업 내부에 묶습니다.
+  if (event.key === "Tab") {
+    const focusables = [helpCloseButton, helpDoneButton];
+    const index = focusables.indexOf(document.activeElement);
+    if (event.shiftKey && (index === 0 || index === -1)) { event.preventDefault(); helpDoneButton.focus(); }
+    else if (!event.shiftKey && index === focusables.length - 1) { event.preventDefault(); helpCloseButton.focus(); }
+  }
+});
+let helpSeen = false;
+try { helpSeen = localStorage.getItem(HELP_SEEN_KEY) === "1"; } catch (_) {}
+if (!helpSeen) openHelp();
 
 startButton.addEventListener("click", startGame);
 restartButton.addEventListener("click", restartGame);
