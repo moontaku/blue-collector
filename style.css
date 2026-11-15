@@ -808,3 +808,28 @@ body { position:relative; background:#080f1f; }
   #end-screen #economy-result {grid-column:1;}
   #end-screen .result-actions {grid-template-columns:repeat(2,minmax(0,1fr));}
 }
+
+
+/* STEP 6-5.2: 처음 방문 안내는 메인 화면 위에 표시하고, 게임 HUD와 분리 */
+#start-screen .meta-actions { flex-wrap:nowrap; }
+#start-screen #help-start-button { border-color:#5787b3; color:#dbeafe; background:#203c5b; }
+#help-overlay {position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;
+  background:rgba(4,12,27,.97);padding:18px;overflow-y:auto;}
+#help-overlay[hidden] {display:none!important;}
+.help-dialog {width:min(100%,650px);max-height:100%;overflow-y:auto;padding:19px 23px 16px;
+  background:#17263d;border:1px solid #4c6889;border-radius:16px;box-shadow:0 18px 45px rgba(0,0,0,.32);}
+.help-head {display:flex;align-items:center;justify-content:space-between;gap:12px;}
+#help-close-button {background:#293e58;border:1px solid #4c6787;padding:5px 11px;font-size:15px;}
+.help-dialog h2 {margin:4px 0 4px;font-size:23px;letter-spacing:-.035em;}
+#help-intro {font-size:12px;line-height:1.4;color:#b7c9e2;margin:0 0 9px;}
+.help-steps {display:grid;gap:7px;}
+.help-step {display:flex;gap:12px;align-items:flex-start;background:#1e344e;border:1px solid #37516d;
+  border-radius:10px;padding:8px 11px;text-align:left;}
+.help-number {font-size:13px;line-height:1.35;font-weight:850;color:#8fc6ff;}
+.help-step strong {font-size:13px;color:#f1f7ff;}
+.help-step p {font-size:11px;line-height:1.4;color:#b9cde8;margin:3px 0 0;}
+.help-warning {border-left:3px solid #fb7185;background:#432b3a;color:#ffe0e4;
+  font-size:11px;line-height:1.45;padding:7px 10px;margin:9px 0;}
+#help-done-button {display:block;width:100%;border-radius:9px;padding:10px 14px;font-size:13px;}
+.help-footnote {color:#819ab8;text-align:center;font-size:10px;margin:8px 0 0;}
+@media(max-height:500px){.help-dialog {padding:10px 15px;} .help-dialog h2 {font-size:18px;} .help-step {padding:5px 9px;}}
