@@ -19,7 +19,7 @@
       <div id="perf-panel" hidden><span id="perf-text">FPS 측정 중…</span><button id="effect-button" type="button" aria-pressed="true">✨ 연출 ON</button></div>
 
       <div id="start-screen">
-        <div class="intro-card"><span class="eyebrow">BLUE SQUARE / ARCADE 01</span><div class="intro-icon" aria-hidden="true"><span class="blue-block"></span><span class="gold-dot"></span><span class="red-block"></span></div><h1>BLUE COLLECTOR</h1><p class="lead">30초 동안 노란 아이템을 모으고 빨간 추적자를 피하세요.</p><div class="rules" aria-label="기본 조작과 규칙"><span><b>WASD</b> 이동</span><span><b>SPACE</b> 모드 전환</span><span><b>4초</b> 콤보</span><span><b>30초</b> 챌린지</span></div><p class="mode-guide"><strong>전쟁 모드</strong> 점수 보너스 +50% · 아이템 획득 시 적 속도 +5% (최대 +25%) · 마지막 획득 2초 후 안전 복귀</p>
+        <div class="intro-card"><span class="eyebrow">BLUE SQUARE / ARCADE 01</span><div class="intro-icon" aria-hidden="true"><span class="blue-block"></span><span class="gold-dot"></span><span class="red-block"></span></div><h1>BLUE COLLECTOR</h1><p class="lead">30초 동안 노란 아이템을 모으고 빨간 추적자를 피하세요.</p><div class="rules" aria-label="기본 조작과 규칙"><span><b>WASD</b> 이동</span><span><b>SPACE</b> 전쟁 모드 전환</span><span><b>4초</b> 콤보</span><span><b>30초</b> 챌린지</span></div><p class="mode-guide"><strong>전쟁 모드</strong> 점수 보너스 +50% · 아이템 획득 시 적 속도 +5% (최대 +25%) · 마지막 획득 2초 후 안전 복귀</p>
         <label class="difficulty-picker" for="difficulty">장애물 속도
           <select id="difficulty">
             <option value="easy">쉬움 — 55px/초</option>
@@ -27,8 +27,24 @@
             <option value="hard">어려움 — 115px/초</option>
           </select>
         </label>
-        <div class="meta-bar"><span>🪙 보유 코인 <strong id="start-coins">0</strong></span><span>🏆 최고 점수 <strong id="start-best">0</strong></span><span>🛡 보호막 <strong id="start-shields">0</strong>/3</span></div><div class="start-actions"><button id="start-button" type="button">게임 시작 →</button><button id="shop-start-button" class="shop-open-button" type="button">🛒 상점</button></div><div class="meta-actions"><button id="achievements-start-button" type="button">🏆 기록·도전 과제</button><button id="settings-start-button" type="button">⚙ 데이터 관리</button></div><p class="microcopy">WASD 이동 · SPACE 모드 전환 · 30초 챌린지</p></div>
+        <div class="meta-bar"><span>🪙 보유 코인 <strong id="start-coins">0</strong></span><span>🏆 최고 점수 <strong id="start-best">0</strong></span><span>🛡 보호막 <strong id="start-shields">0</strong>/3</span></div><div class="start-actions"><button id="start-button" type="button">게임 시작 →</button><button id="shop-start-button" class="shop-open-button" type="button">🛒 상점</button></div><div class="meta-actions"><button id="help-start-button" type="button">❔ 게임 방법</button><button id="achievements-start-button" type="button">🏆 기록·도전 과제</button><button id="settings-start-button" type="button">⚙ 데이터 관리</button></div><p class="microcopy">WASD 이동 · SPACE 모드 전환 · 30초 챌린지</p></div>
       </div>
+
+      <section id="help-overlay" hidden class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" aria-describedby="help-intro">
+        <div class="help-dialog">
+          <div class="help-head"><span class="eyebrow">HOW TO PLAY / 30 SEC</span><button id="help-close-button" type="button" aria-label="게임 방법 닫기">✕</button></div>
+          <h2 id="help-title">30초 동안 모으고, 살아남으세요.</h2>
+          <p id="help-intro">노란 아이템을 먹어 점수를 올리고 빨간 추적자를 피하세요.</p>
+          <div class="help-steps">
+            <div class="help-step"><span class="help-number">01</span><div><strong>WASD로 이동</strong><p>노란 아이템을 모으세요. 4초 안에 연속으로 먹으면 콤보가 쌓여요.</p></div></div>
+            <div class="help-step"><span class="help-number">02</span><div><strong>SPACE로 전쟁 모드 전환</strong><p>아이템 점수의 50%를 보너스로 모아요. 대신 먹을수록 적이 빨라져요.</p></div></div>
+            <div class="help-step"><span class="help-number">03</span><div><strong>2초 버티고, SPACE로 안전 복귀</strong><p>전쟁 중 아이템을 먹었다면 마지막 획득 후 2초를 버텨야 돌아올 수 있어요. 안전 복귀 또는 30초 완주 시 보너스가 확정돼요.</p></div></div>
+          </div>
+          <p class="help-warning">보호막 없이 전쟁 모드에서 충돌하면 아직 확정하지 않은 보너스는 잃어요.</p>
+          <button id="help-done-button" type="button">알겠어요 · 게임 시작하기</button>
+          <p class="help-footnote">다음부터 자동으로 열리지 않아요. 메인 화면의 ‘게임 방법’에서 다시 볼 수 있어요.</p>
+        </div>
+      </section>
 
       <button id="restart-button" type="button" hidden>다시 시작</button>
       <button id="sound-button" type="button" aria-pressed="true">🔊 사운드 ON</button>
