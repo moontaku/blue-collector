@@ -203,6 +203,32 @@ soundButton.addEventListener("click", () => {
 });
 
 
+// STEP 6-5.3: 테스트에서 사용한 오리지널 BGM. 효과음과 분리된 설정.
+const bgmButton = document.getElementById("bgm-button");
+const bgmAudio = new Audio("blue-collector-bgm-original.wav");
+bgmAudio.loop = true;
+bgmAudio.preload = "auto";
+bgmAudio.volume = 0.18;
+let bgmEnabled = false;
+function updateBgmButton() {
+  bgmButton.textContent = bgmEnabled ? "♫ BGM ON" : "♫ BGM OFF";
+  bgmButton.setAttribute("aria-pressed", String(bgmEnabled));
+}
+function startBgm() {
+  if (!bgmEnabled || !running) return;
+  bgmAudio.play().catch(() => { /* 파일 로드 또는 브라우저 재생 제한 시 게임은 정상 진행 */ });
+}
+function stopBgm() {
+  bgmAudio.pause();
+  try { bgmAudio.currentTime = 0; } catch (_) {}
+}
+bgmButton.addEventListener("click", () => {
+  bgmEnabled = !bgmEnabled;
+  updateBgmButton();
+  if (bgmEnabled) startBgm();
+  else stopBgm();
+});
+
 const GAME_DURATION_MS = 30_000; // 30초
 const COMBO_WINDOW_MS = 4000; // 아이템을 먹은 뒤 4초 동안 콤보 유지
 const MAX_COMBO_MULTIPLIER = 3; // 점수 배수 상한
@@ -1166,6 +1192,7 @@ function finishGame(reason = "time") {
     recordList.appendChild(li);
   }
   running = false;
+  stopBgm();
   feedbackUntil = 0;
   updateFeedback(performance.now());
   animationId = null;
@@ -1271,6 +1298,8 @@ function startGame() {
 
   draw();
   running = true;
+  stopBgm();
+  startBgm();
   animationId = requestAnimationFrame(loop);
 }
 
