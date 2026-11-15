@@ -833,3 +833,14 @@ body { position:relative; background:#080f1f; }
 #help-done-button {display:block;width:100%;border-radius:9px;padding:10px 14px;font-size:13px;}
 .help-footnote {color:#819ab8;text-align:center;font-size:10px;margin:8px 0 0;}
 @media(max-height:500px){.help-dialog {padding:10px 15px;} .help-dialog h2 {font-size:18px;} .help-step {padding:5px 9px;}}
+
+
+/* STEP 6-5.3: 독립된 BGM ON/OFF 버튼 */
+#bgm-button { position:absolute; z-index:7; right:14px; top:102px; width:137px;
+  min-width:0; padding:9px 11px; font-size:12px; color:#dbeafe;
+  background:#253651; border:1px solid #5a7292; }
+#bgm-button[aria-pressed="true"] { background:#1c4562; border-color:#67b5d8; color:#e0f2fe; }
+#game:has(#start-screen:not([hidden])) #bgm-button,
+#game:has(#end-screen:not([hidden])) #bgm-button {
+  top:6px; right:130px; width:auto; min-width:98px;
+  padding:6px 10px; font-size:11px; }
