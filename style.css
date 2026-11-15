@@ -844,3 +844,24 @@ body { position:relative; background:#080f1f; }
 #game:has(#end-screen:not([hidden])) #bgm-button {
   top:6px; right:130px; width:auto; min-width:98px;
   padding:6px 10px; font-size:11px; }
+
+/* STEP 6-5.4.1: Color intro overlay, shown before the start menu */
+#color-intro {position:absolute;inset:0;z-index:40;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 46%,#182944 0%,#0a1326 58%,#07101d 100%);isolation:isolate}
+#color-intro[hidden] {display:none!important}
+.intro-scanlines {position:absolute;inset:0;pointer-events:none;opacity:.16;background:repeating-linear-gradient(to bottom,transparent 0,transparent 7px,rgba(135,169,209,.18) 8px)}
+#color-intro::before {content:"";position:absolute;inset:22px;border:1px solid rgba(132,162,200,.16);border-radius:15px;pointer-events:none}
+.intro-sequence {display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;gap:9px;text-align:center;transform:translateY(-7px)}
+.intro-symbol {width:70px;height:70px;box-shadow:0 0 22px currentColor;animation:intro-object-in .4s ease-out both}
+.intro-symbol.blue {background:#2563eb;border:3px solid #93c5fd;border-radius:11px;color:rgba(37,99,235,.33)}
+.intro-symbol.yellow {width:53px;height:53px;margin:8.5px 0;transform:rotate(45deg);background:#facc15;border:3px solid #fff4b0;border-radius:5px;color:rgba(250,204,21,.32)}
+.intro-symbol.red {background:#b91c1c;border:3px solid #fda4af;border-radius:11px;color:rgba(251,113,133,.33);position:relative}
+.intro-symbol.red::after {content:"";position:absolute;inset:18px;background:linear-gradient(45deg,transparent 44%,#ffe4e6 45%,#ffe4e6 55%,transparent 56%),linear-gradient(-45deg,transparent 44%,#ffe4e6 45%,#ffe4e6 55%,transparent 56%)}
+.intro-symbol.logo {width:55px;height:55px;background:#2563eb;color:#2563eb;border:2px solid #93c5fd;border-radius:10px;box-shadow:0 0 0 8px rgba(37,99,235,.09),0 0 26px rgba(59,130,246,.38)}
+.intro-word {font-size:clamp(43px,6vw,70px);font-weight:900;letter-spacing:.13em;line-height:1.15;color:#f8fafc;text-shadow:0 3px 20px rgba(0,0,0,.4);animation:intro-word-in .35s ease-out both}
+.intro-word.blue {color:#b9d6ff}.intro-word.yellow {color:#fef08a}.intro-word.red {color:#fecdd3}
+.intro-word.logo {font-size:clamp(32px,5vw,54px);letter-spacing:.06em;white-space:nowrap}
+.intro-sub {font-size:12px;letter-spacing:.25em;font-weight:700;color:#8ea9c8}
+#intro-skip {position:absolute;top:18px;right:20px;background:rgba(20,37,59,.8);border:1px solid #57718e;color:#dce9ff;border-radius:9px;font-size:12px;padding:9px 15px;z-index:2}
+@keyframes intro-word-in {from{opacity:0;transform:translateY(11px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes intro-object-in {from{opacity:0;filter:brightness(.7)}to{opacity:1;filter:brightness(1)}}
+@media(prefers-reduced-motion:reduce) {#color-intro * {animation:none!important;transition:none!important}}
