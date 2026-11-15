@@ -1,0 +1,810 @@
+/* STEP 4-1: Visual polish, no gameplay balancing changes */
+:root { color-scheme: dark; --surface: #17243b; --line: #334764; --text: #edf5ff; --muted: #a5bbd8; --blue: #3b82f6; --gold: #facc15; }
+* { box-sizing: border-box; }
+html,body { margin:0; height:100%; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; background:#0f172a; color:var(--text); }
+#game { position:relative; width:100%; height:100%; overflow:hidden; }
+canvas { display:block; width:100%; height:100%; }
+[hidden] {display:none !important;}
+button, select {font:inherit;}
+button { cursor:pointer; border:1px solid transparent; border-radius:13px; padding:12px 20px; color:white; background:#2563eb; font-weight:750; letter-spacing:-.02em; transition:background-color .15s ease, transform .15s ease; }
+button:hover {background:#1d4ed8; transform:translateY(-1px)}
+button:active {transform:translateY(0)}
+button:focus-visible,select:focus-visible {outline:3px solid #facc15; outline-offset:3px}
+.eyebrow { color:#8bb9ff; font-size:12px; font-weight:800; letter-spacing:.16em; }
+#start-screen, #end-screen {position:absolute; inset:0; z-index:3; background:rgba(9,16,32,.94); overflow-y:auto; padding:32px 18px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:safe center; }
+#start-screen {background:radial-gradient(ellipse at 50% 28%,rgba(37,99,235,.24),transparent 55%),rgba(9,16,32,.96)}
+.intro-card {width:min(92vw,540px); padding:34px 32px; border-radius:26px; border:1px solid #3b506c; background:rgba(23,36,59,.9); box-shadow:0 30px 70px rgba(0,0,0,.25); display:flex; flex-direction:column; align-items:center; gap:17px}
+.intro-card h1 {font-size:clamp(29px,5vw,47px); letter-spacing:-.045em; margin:0; line-height:1.12}
+.intro-card .lead {color:#c5d4e9; font-size:15px; line-height:1.55; margin:0}
+.intro-icon {height:80px; width:160px; display:flex; align-items:center; justify-content:center; gap:19px}
+.blue-block {height:38px;width:38px;background:#3b82f6;border-radius:5px;box-shadow:0 0 30px rgba(59,130,246,.35)}
+.red-block {height:33px;width:33px;background:#ef4444;border-radius:4px;transform:rotate(10deg)}
+.gold-dot {height:23px;width:23px;background:#facc15;border-radius:50%; box-shadow:0 0 28px rgba(250,204,21,.3)}
+.rules {display:flex; gap:9px; justify-content:center; flex-wrap:wrap; width:100%}
+.rules span {font-size:12px; padding:9px 11px; background:#223451; border:1px solid #38506f; border-radius:10px; color:#c5d4e9}
+.rules b {color:white}
+.difficulty-picker {display:flex;flex-direction:column;align-items:flex-start;gap:8px;color:#bcd1ed;font-size:13px;font-weight:700;width:100%;margin-top:6px}
+#difficulty {width:100%; color:white; background:#0c182c; border:1px solid #557092; border-radius:11px; padding:13px 14px; font-size:15px}
+#start-button {width:100%;font-size:18px;padding:15px;margin-top:6px}
+.microcopy {font-size:11px;color:#8299ba;margin:0}
+/* Game HUD: anchored top; large hitboxes for buttons */
+#score-board,#timer-board,#obstacle-board,#combo-board {position:absolute;left:20px;pointer-events:none;z-index:2; background:rgba(24,37,58,.94);border:1px solid rgba(115,143,182,.35);border-radius:13px;box-shadow:0 7px 22px rgba(0,0,0,.16);}
+.hud-label {display:block; color:#a8bedb; font-size:10px; letter-spacing:.14em; font-weight:850; margin-bottom:4px}
+#score-board {top:18px; width:148px; padding:10px 14px; color:#f8fafc;font-size:25px;font-weight:850;line-height:1.1}
+#timer-board {top:94px; width:148px; padding:10px 14px; font-size:24px;font-weight:850;line-height:1.12}
+#timer-board small {font-size:13px;color:#a8bedb}
+#timer-track {display:block; width:100%;height:5px;background:#344761;border-radius:99px;margin-top:9px;overflow:hidden}
+#timer-progress {display:block;width:100%;height:100%;background:#6ab0ff;border-radius:99px;transition:width .12s linear,background-color .12s}
+#timer-board.urgent {border-color:#f87171;color:#fda4af}
+#timer-board.urgent #timer-progress {background:#fb7185}
+#obstacle-board {top:205px; width:148px; padding:10px 14px; font-size:23px;font-weight:850;color:#fda4af;line-height:1.1}
+#combo-board {top:281px; max-width:205px; padding:10px 14px;color:#fde68a;font-size:16px;font-weight:800;background:rgba(97,65,24,.94);border-color:rgba(250,204,21,.3)}
+#combo-board small {display:block;font-size:11px;color:#ffdf91;font-weight:500;margin-top:5px}
+#restart-button,#sound-button {position:absolute;right:20px;z-index:5;min-width:126px;font-size:13px;padding:11px 15px;backdrop-filter:blur(10px)}
+#restart-button {top:18px}
+#sound-button {top:70px;background:#253651;border:1px solid #5a7292}
+#sound-button:hover {background:#334764}
+/* Results */
+#end-screen {gap:12px;justify-content:flex-start; padding:34px 18px 50px;background:rgba(10,18,35,.97)}
+#end-screen h1 {margin:0; font-size:clamp(34px,5vw,58px);letter-spacing:-.045em}
+#end-screen p {margin:0; font-size:15px}
+#end-reason {color:#fda4af !important}
+#end-stats {color:#93c5fd;font-size:14px !important}
+.result-metrics {display:grid;grid-template-columns:1fr 1fr;gap:12px;width:min(94vw,650px);margin:8px 0}
+.metric {padding:16px;background:#1c2a43;border:1px solid #324a68;border-radius:16px;text-align:left}
+.metric strong {font-size:clamp(23px,3.5vw,34px);font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.metric small {font-size:13px;color:#a8bedb}
+#records, #test-report {width:min(94vw,650px);background:#1b2a40;border:1px solid #344763;border-radius:16px;padding:17px 19px;text-align:left}
+#records h2,#test-report h2 {font-size:16px;margin:0 0 12px;letter-spacing:-.02em}
+#record-list {padding-left:20px;margin:0;line-height:1.85;color:#d6e4f8;font-size:13px}
+.report-note {font-size:12px !important;line-height:1.5;color:#a8bedb}
+.report-scroll {overflow-x:auto; margin:14px 0 12px}
+#test-report table {width:100%;border-collapse:collapse;white-space:nowrap;font-size:12px}
+#test-report th,#test-report td {padding:10px 8px; border-bottom:1px solid #3c506d; text-align:center;font-variant-numeric:tabular-nums}
+#test-report th {font-weight:750;color:#9ec6ff}
+#export-csv-button {width:100%;background:#0f766e;padding:10px;font-size:13px}
+#export-csv-button:hover {background:#0d9488}
+.result-actions {width:min(94vw,650px);display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.result-actions button {flex:1;min-width:230px;font-size:14px;padding:14px}
+#change-difficulty-button {background:#40516b}
+#change-difficulty-button:hover {background:#516580}
+@media(max-width:570px) {
+  #score-board,#timer-board,#obstacle-board {left:10px;width:108px;padding:8px 10px;font-size:20px}
+  #score-board {top:10px}
+  #timer-board {top:71px}
+  #obstacle-board {top:166px}
+  #combo-board {left:10px;top:226px;font-size:12px;max-width:155px}
+  #restart-button,#sound-button {right:10px;min-width:112px;font-size:12px}
+  #restart-button {top:10px}
+  #sound-button {top:59px}
+  .intro-card {padding:26px 18px}
+  .result-metrics {gap:8px}
+  .metric {padding:12px}
+}
+@media(prefers-reduced-motion:reduce) {button{transition:none}}
+
+/* STEP 4-2: responsive HUD layout for narrow desktop browser windows.
+   Arrange HUD into two columns and place control buttons below it. */
+@media (max-width: 700px) {
+  #score-board, #timer-board, #obstacle-board, #combo-board {
+    width: calc((100% - 28px) / 2);
+    max-width: none;
+    min-width: 0;
+    left: 10px;
+    top: auto;
+    padding: 8px 11px;
+    font-size: 19px;
+    line-height: 1.15;
+    box-shadow: none;
+  }
+  #score-board, #timer-board { top: 10px; min-height: 55px; }
+  #timer-board { left: auto; right: 10px; }
+  #obstacle-board, #combo-board { top: 72px; min-height: 60px; }
+  #combo-board { left: auto; right: 10px; font-size: 13px; }
+  #combo-board small { font-size: 10px; margin-top: 2px; }
+  #restart-button, #sound-button {
+    top: 142px;
+    min-width: 0;
+    width: calc((100% - 28px) / 2);
+    padding: 9px 6px;
+    font-size: 12px;
+    z-index: 5;
+  }
+  #restart-button { left: 10px; right: auto; }
+  #sound-button { right: 10px; left: auto; }
+  .intro-card { width: min(100%, 540px); }
+  #start-screen, #end-screen { padding-inline: 12px; }
+  #records, #test-report, .result-metrics, .result-actions { width: min(100%, 650px); }
+  .result-actions button { min-width: min(100%, 230px); }
+}
+
+/* Short landscape windows: allow start/end views to scroll rather than clip content. */
+@media (max-height: 620px) {
+  #start-screen { justify-content: flex-start; }
+  .intro-card { padding-block: 18px; gap: 10px; }
+  .intro-icon { height: 44px; }
+  .blue-block { width: 28px; height: 28px; }
+  .red-block { width: 25px; height: 25px; }
+  .gold-dot { width: 17px; height: 17px; }
+  #end-screen { padding-block: 18px 30px; gap: 9px; }
+}
+
+@media (max-width: 390px) {
+  .intro-card { padding-inline: 14px; }
+  .eyebrow { font-size: 10px; }
+  #record-list { overflow-wrap: anywhere; }
+  #records, #test-report { padding: 13px; }
+  .metric { padding: 10px; }
+  .metric strong { font-size: 22px; }
+  .result-actions { flex-direction: column; }
+  .result-actions button { width: 100%; }
+}
+
+/* STEP 5-1: 안전/전쟁 모드 표시. 화면 효과만 있고 이동/점수 로직은 변경하지 않음 */
+#mode-board { position:absolute; left:20px; top:370px; z-index:2; width:205px;
+  padding:10px 14px; border-radius:13px; border:1px solid #397867;
+  background:rgba(19,55,49,.96); box-shadow:0 7px 22px rgba(0,0,0,.16);
+  pointer-events:none; color:#bbf7d0; }
+#mode-board .hud-label { color:#9bd9c0; }
+#mode-board strong { display:block; font-size:18px; }
+#mode-board small { display:block; margin-top:5px; font-size:11px; opacity:.8; }
+#mode-board.war { border-color:#b74b62; background:rgba(91,26,45,.96); color:#fecdd3; }
+#mode-board.war .hud-label { color:#fda4af; }
+#game.war-mode::after { content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+  box-shadow:inset 0 0 0 5px rgba(244,63,94,.58); }
+@media (max-width:700px) {
+  #mode-board { left:10px; right:10px; top:190px; width:auto; padding:8px 11px; }
+  #mode-board strong { font-size:15px; }
+  #mode-board small { font-size:10px; }
+}
+
+/* STEP 5-2: 보너스 잔액 및 종료 정산 정보 */
+#mode-board { min-height: 80px; }
+#bonus-status { line-height: 1.35; }
+#bonus-result { color:#fde68a !important; font-size:13px !important; line-height:1.5; }
+@media (max-width:700px) {
+  #mode-board { min-height: 69px; }
+  #bonus-status { font-size:10px; }
+}
+
+/* STEP 5-3: 위험도 가시화. 기존 모드 HUD 안에 표시하여 충돌 금지 영역 재사용. */
+#danger-status { color:#b6f5d2; font-weight:700; }
+#mode-board.war #danger-status { color:#ffc1ca; }
+
+
+/* STEP 5-4: 모든 브라우저에서 960x540의 동일한 게임 좌표를 유지합니다.
+   JS는 화면에 맞춘 CSS 스케일만 변경합니다. */
+html, body { width:100%; height:100%; overflow:hidden; }
+body { position:relative; background:#080f1f; }
+#game { position:absolute; left:50%; top:50%; width:960px; height:540px;
+  transform:translate(-50%, -50%) scale(var(--stage-scale, 1));
+  transform-origin:center center; overflow:hidden; border:1px solid #334155;
+  box-shadow:0 20px 100px rgba(0,0,0,.55); }
+#canvas { width:960px; height:540px; }
+/* 상단 HUD를 두 줄로 축약, 플레이 영역을 확보합니다. */
+#score-board, #timer-board, #obstacle-board, #combo-board {
+  top:12px; width:134px; left:auto; right:auto; min-height:65px;
+  padding:9px 12px; max-width:none; font-size:20px; box-shadow:none;
+}
+#score-board { left:14px; }
+#timer-board { left:159px; }
+#obstacle-board { left:304px; }
+#combo-board { left:449px; width:180px; font-size:14px; }
+#combo-board small {font-size:11px;}
+#mode-board, #mode-board.war { top:90px; left:14px; right:auto; width:590px;
+  min-height:0; padding:8px 13px; font-size:12px; }
+#mode-board strong {font-size:16px; display:inline-block; margin-right:12px;}
+#mode-board small {display:inline-block; margin-right:10px; font-size:11px;}
+#restart-button, #sound-button {left:auto; right:14px; top:12px; width:137px; min-width:0; padding:9px 11px; font-size:12px;}
+#sound-button {top:60px;}
+#feedback-layer {position:absolute; z-index:2; left:50%; top:157px; transform:translateX(-50%);
+  width:620px; text-align:center; pointer-events:none; font-weight:900; letter-spacing:.02em;
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,.8));}
+#feedback-primary {font-size:34px; color:#fff; min-height:42px; opacity:0;
+  text-shadow:0 2px 15px rgba(0,0,0,.9); }
+#feedback-secondary {font-size:19px; color:#facc15; min-height:26px; opacity:0;}
+#feedback-primary.active, #feedback-secondary.active {opacity:1; animation:feedback-pop .3s ease-out both;}
+#feedback-primary.war, #feedback-secondary.war {color:#fb7185;}
+#feedback-primary.safe, #feedback-secondary.safe {color:#86efac;}
+#feedback-primary.combo {color:#facc15;}
+@keyframes feedback-pop {0%{opacity:0;transform:translateY(8px) scale(.85)} 100%{opacity:1;transform:translateY(0) scale(1)}}
+/* STEP 5-4의 고정 좌표계가 아래 기존 미디어 쿼리의 HUD 배치를 덮어씁니다. */
+
+
+/* STEP 5-4.1: 960x540 고정 스테이지 내부에서 스크롤 없이 시작하기.
+   화면의 실제 크기가 아니라 스테이지 내부 540px 높이에 맞춘 레이아웃. */
+#start-screen {
+  padding: 10px 20px;
+  justify-content: center;
+  overflow-y: auto; /* 브라우저 확대 등 예외 환경에서는 접근성 유지 */
+}
+#start-screen .intro-card {
+  width: 830px; max-width: 100%;
+  padding: 16px 26px;
+  gap: 9px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  box-shadow: 0 14px 40px rgba(0,0,0,.22);
+}
+#start-screen .eyebrow {font-size: 10px; line-height: 1.15;}
+#start-screen .intro-icon {height: 40px; width: 140px; gap: 18px;}
+#start-screen .blue-block {height: 28px; width: 28px;}
+#start-screen .red-block {height: 25px; width: 25px;}
+#start-screen .gold-dot {height: 18px; width: 18px;}
+#start-screen .intro-card h1 {font-size: 32px; line-height: 1.1;}
+#start-screen .intro-card .lead {font-size: 13px; line-height: 1.4;}
+#start-screen .rules {gap: 6px; max-width: 760px;}
+#start-screen .rules span {padding: 7px 9px; font-size: 11px; line-height: 1.2;}
+#start-screen .difficulty-picker {margin-top: 1px; gap: 4px; font-size: 12px; max-width: 520px;}
+#start-screen #difficulty {padding: 8px 12px; font-size: 13px; border-radius: 9px;}
+#start-screen #start-button {width: min(100%,520px); margin-top: 1px; padding: 10px 16px; font-size: 15px; border-radius: 10px;}
+#start-screen .microcopy {font-size: 10px; line-height: 1.2;}
+
+
+/* STEP 5-4.2: 종료 요약과 재시작 버튼은 고정 960x540 화면 내에 항상 노출.
+   기록/통계는 접이식 영역으로 이동하며, 상세 내용만 내부 스크롤합니다. */
+#end-screen {
+  inset: 0;
+  padding: 16px 24px 14px;
+  gap: 10px;
+  justify-content: flex-start;
+  align-items: center;
+  overflow: hidden;
+}
+#end-screen .result-summary {
+  width: min(100%, 700px);
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+#end-screen .eyebrow { font-size: 10px; line-height: 1.2; }
+#end-screen h1 { font-size: 36px; line-height: 1.04; margin: 1px 0; }
+#end-screen p { line-height: 1.2; font-size: 12px; }
+#end-stats { font-size: 12px !important; }
+#bonus-result { font-size: 12px !important; }
+#end-screen .result-metrics {
+  width: 100%;
+  max-width: 650px;
+  gap: 12px;
+  margin: 6px 0 3px;
+}
+#end-screen .metric { padding: 11px 17px; border-radius: 12px; }
+#end-screen .metric strong { font-size: 29px; line-height: 1.15; }
+#end-screen .result-actions {
+  width: 100%;
+  max-width: 650px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+  gap: 10px;
+}
+#end-screen .result-actions button {
+  min-width: 0;
+  width: 100%;
+  padding: 11px 12px;
+  font-size: 13px;
+}
+#result-details {
+  width: min(100%, 700px);
+  max-width: 700px;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  border: 1px solid #3b506c;
+  border-radius: 12px;
+  background: #16243b;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+}
+#result-details summary {
+  cursor: pointer;
+  flex: 0 0 auto;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 750;
+  color: #d9e7fb;
+}
+#result-details summary::-webkit-details-marker { display:none; }
+#result-details summary:focus-visible {outline: 2px solid #facc15; outline-offset: -2px;}
+#result-details[open] summary span { transform: rotate(180deg); }
+#result-details:not([open]) {flex: 0 0 auto;}
+#result-details .result-details-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#result-details:not([open]) .result-details-body {display: none;}
+#result-details #records, #result-details #test-report {
+  width: 100%;
+  max-width: 100%;
+  flex: 0 0 auto;
+  padding: 12px 14px;
+}
+#result-details #records h2, #result-details #test-report h2 {margin-bottom: 8px;}
+#result-details #record-list { line-height: 1.5; }
+#result-details .report-scroll { margin: 8px 0; }
+#result-details .report-note { font-size: 11px !important; }
+
+
+/* STEP 5-4.3: Safari/Chrome에서 접이식 통계의 하단이 잘리던 문제 수정.
+   스크롤 컨테이너를 details 하나로 통일하여 중첩된 flex/overflow 스크롤 제거. */
+#end-screen .result-actions {
+  grid-template-columns: 1fr 1fr 0.78fr;
+  gap: 8px;
+}
+#end-screen .result-actions button {
+  padding: 11px 7px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+#end-screen #export-csv-button {
+  background: #0f766e;
+  font-size: 12px;
+}
+#end-screen #export-csv-button:hover {background:#0d9488;}
+#result-details {
+  display: block;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+#result-details summary {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #16243b;
+  border-bottom: 1px solid #344763;
+}
+#result-details .result-details-body {
+  display: block;
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+  padding: 10px 12px 16px;
+}
+#result-details .result-details-body #records { margin-bottom: 10px; }
+#result-details:not([open]) {overflow:hidden;}
+#result-details:not([open]) .result-details-body {display:none;}
+
+/* STEP 5-5: 최소 전쟁 유지 시간 상태 표시 */
+#war-lock-status { color:#c4f8df; font-weight:800; font-variant-numeric:tabular-nums; }
+#mode-board.war #war-lock-status { color:#fef08a; }
+#mode-board.war #war-lock-status.locked { color:#fecaca; }
+
+
+/* STEP 5-7: keep feedback visible, reduce compositing-heavy filters/shadows. */
+#feedback-layer { filter:none; }
+#feedback-primary { text-shadow:0 1px 2px #07101f; }
+#game.war-mode::after { box-shadow:none; border:3px solid rgba(244,63,94,.58); }
+#game.low-effects #feedback-layer { display:none !important; }
+#game.low-effects.war-mode::after { border:0; }
+#perf-panel { position:absolute; z-index:7; right:14px; bottom:12px; display:flex; align-items:center; gap:8px;
+  padding:5px 8px; background:rgba(15,23,42,.93); color:#e2e8f0; font-size:11px;
+  border-radius:9px; border:1px solid #475569; pointer-events:auto; }
+#perf-text {min-width:156px; font-variant-numeric:tabular-nums;}
+#effect-button {padding:5px 8px; font-size:11px; background:#334155; border-radius:7px;}
+#effect-button:hover {background:#475569;}
+#performance-result {font-size:11px !important;color:#93c5fd!important;}
+
+
+/* STEP 6-1 — persistent meta economy / shop UI */
+#start-screen .intro-card { gap:8px; }
+.meta-bar { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; width:100%; }
+.meta-bar span { color:#dbeafe; background:#243753; padding:6px 9px; border-radius:8px; font-size:11px; }
+.meta-bar strong {color:#fde68a; font-variant-numeric:tabular-nums;}
+.start-actions {display:grid; grid-template-columns:minmax(0,2fr) minmax(112px,1fr); width:min(100%,520px); gap:8px;}
+#start-screen .start-actions #start-button {width:100%; margin:0;}
+.shop-open-button {background:#0f766e !important; border-color:#14b8a6 !important;}
+.shop-open-button:hover {background:#0d9488 !important;}
+#end-screen .result-actions {grid-template-columns:repeat(4,minmax(0,1fr));}
+#end-screen .result-actions button {white-space:normal;line-height:1.2;}
+#end-screen #economy-result {color:#fde68a; font-weight:750;}
+#end-screen #shield-result {color:#bfdbfe;}
+#shop-overlay {position:absolute;inset:0;z-index:10;display:grid;place-items:center;padding:16px;background:rgba(7,13,27,.96);overflow:auto;}
+#shop-overlay[hidden]{display:none!important;}
+.shop-card {width:min(100%,570px);border-radius:18px;background:#1a2942;border:1px solid #50688b;padding:22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 45px rgba(0,0,0,.22);}
+.shop-heading {display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.shop-heading h2 {margin:5px 0 0;font-size:27px;}
+#shop-close-button {padding:8px 12px;background:#40516b;}
+.shop-wallet {display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;padding:12px 14px;border:1px solid #395172;border-radius:10px;background:#122039;font-size:14px;}
+.shop-wallet strong {color:#fde68a;font-variant-numeric:tabular-nums;}
+.shop-product {display:flex;align-items:center;gap:15px;padding:13px;background:#243753;border:1px solid #3b5578;border-radius:12px;text-align:left;}
+.shop-symbol {font-size:39px;flex:0 0 52px;text-align:center;}
+.shop-product-info {flex:1;min-width:0;}
+.shop-product-info strong {font-size:17px;}
+.shop-product-info p {font-size:13px;line-height:1.5;color:#d5e4f7;margin:4px 0;}
+.shop-product-info small {font-size:11px;color:#afc7e6;}
+.shop-purchase {display:flex;justify-content:space-between;align-items:center;gap:16px;}
+.shop-purchase > strong {color:#facc15;font-size:23px;}
+.shop-purchase button {min-width:160px;}
+.shop-purchase button:disabled {opacity:.5;cursor:not-allowed;transform:none;}
+#shop-message {margin:0;min-height:22px;color:#d4fce1;font-size:12px;}
+.shop-footnote {font-size:11px;color:#a8bedb;line-height:1.5;margin:0;}
+@media(max-width:700px){#end-screen .result-actions{grid-template-columns:repeat(4,minmax(0,1fr));} #end-screen .result-actions button{font-size:11px;padding:8px 4px;min-width:0;}}
+
+/* 960×540 카드 내부에 재화 정보를 추가하면서도 시작 버튼이 가려지지 않도록 간격 절약 */
+#start-screen .intro-card{padding:13px 20px;gap:7px;}
+#start-screen .intro-icon{height:30px;}
+#start-screen .intro-card h1{font-size:30px;}
+#start-screen .intro-card .lead{font-size:12px;}
+#start-screen .rules span{padding:5px 7px;font-size:10px;}
+#start-screen .difficulty-picker{gap:3px;}
+#start-screen #difficulty{padding:7px 10px;}
+#start-screen .start-actions button{padding:8px 12px;font-size:13px;}
+#end-screen .result-summary{gap:5px;}
+#end-screen .result-summary p{font-size:11px;line-height:1.15;}
+#end-screen .result-summary h1{font-size:31px;}
+#end-screen .result-metrics{margin:3px 0;}
+#end-screen .metric{padding:8px 13px;}
+#end-screen .metric strong{font-size:25px;}
+#end-screen .result-actions{margin-top:3px;}
+#end-screen .result-actions button{padding:8px 4px;}
+
+/* STEP 6-3: avoid overlap of sound toggle and menu card. Game HUD position unchanged. */
+#game:has(#start-screen:not([hidden])) #sound-button,
+#game:has(#end-screen:not([hidden])) #sound-button { top:6px;right:10px;min-width:105px;width:auto;padding:6px 10px;font-size:11px;z-index:6;backdrop-filter:none; }
+/* Compact menu actions; no new vertical scrolling at 960x540. */
+#start-screen .intro-card { gap:5px; padding:10px 18px; }
+#start-screen .intro-icon {height:26px;}
+#start-screen .intro-card h1 {font-size:27px;}
+#start-screen .rules span {padding:4px 6px;font-size:9px;}
+#start-screen .difficulty-picker {margin-top:0;}
+#start-screen #difficulty {padding:6px 9px;}
+#start-screen .meta-bar span {padding:4px 7px;}
+.meta-actions {display:flex;gap:8px;justify-content:center;width:100%;}
+.meta-actions button {padding:6px 12px;font-size:11px;background:#31445e;border:1px solid #58708f;min-width:0;}
+.meta-actions button:hover {background:#415979;}
+.result-meta-actions {width:min(100%,700px); margin:1px auto;}
+#end-screen .result-summary {gap:4px;}
+#end-screen #record-announcement {font-size:12px; color:#fde68a; font-weight:800; padding:5px 9px;border-radius:8px; background:#3b2d18;max-width:100%;}
+#end-screen .result-actions button {padding:6px 4px;}
+.meta-overlay {position:absolute;inset:0;z-index:12;background:rgba(7,13,27,.96);display:grid;place-items:center;padding:16px;overflow:auto;}
+.meta-overlay[hidden]{display:none!important;}
+.meta-dialog {background:#192842;border:1px solid #50688b;border-radius:18px;width:min(100%,670px);max-height:100%;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:10px;}
+.meta-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.meta-heading h2 {font-size:20px;margin:0;}
+.meta-heading button {padding:5px 11px;background:#344761;}
+.meta-dialog h3 {font-size:14px;margin:5px 0 0;}
+.record-summary {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;}
+.record-cell {background:#273a55;border-radius:9px;padding:10px;display:flex;flex-direction:column;gap:5px;}
+.record-cell span {font-size:10px;color:#a8bedb;}
+.record-cell strong {font-size:18px;color:#fff;}
+.achievements-list {display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.achievement-row {display:flex;align-items:center;gap:8px;background:#24344d;border:1px solid #415473;border-radius:9px;padding:9px;}
+.achievement-row.locked {opacity:.62;}
+.achievement-symbol {font-size:20px;}
+.achievement-row div {flex:1;display:flex;flex-direction:column;gap:3px;}
+.achievement-row strong {font-size:12px;}
+.achievement-row small,.achievement-state {font-size:10px;color:#b6c9e4;}
+.achievement-row.unlocked .achievement-state {color:#86efac;}
+.meta-note {font-size:11px;color:#a8bedb;line-height:1.5;margin:0;}
+.reset-actions {display:flex;flex-direction:column;gap:9px;}
+.reset-actions button {background:#31445e;border:1px solid #6a7790;text-align:left;font-size:13px;}
+#reset-all {background:#71343e;border-color:#b25766;}
+#reset-message {min-height:1em;color:#86efac;font-size:12px;}
+@media (max-width:600px) {.achievements-list{grid-template-columns:1fr}.record-summary{grid-template-columns:repeat(2,1fr)}}
+
+
+/* STEP 6-4.2 — HUD 가독성 개선: 기존 960×540 좌표계와 기능 유지 */
+#score-board, #timer-board, #obstacle-board, #combo-board {
+  background:rgba(13,25,46,.95);
+  border:1px solid #3b536f;
+  border-top:2px solid #537396;
+  border-radius:11px;
+}
+#score-board { border-top-color:#60a5fa; color:#f8fafc; }
+#timer-board { border-top-color:#38bdf8; }
+#obstacle-board { border-top-color:#fb7185; }
+#combo-board { background:rgba(55,39,28,.95); border-color:#725a34; border-top-color:#facc15; color:#fde68a; }
+#score-board .hud-label, #timer-board .hud-label, #obstacle-board .hud-label, #combo-board .hud-label {
+  color:#b6c9e4; letter-spacing:.12em; font-size:10px;
+}
+#timer-progress { transition:width .12s linear; }
+#mode-board, #mode-board.war {
+  top:90px; left:14px; width:590px;
+  border-radius:11px; border:1px solid #2d8075;
+  border-left:4px solid #34d399;
+  padding:8px 12px 13px;
+  background:rgba(12,40,46,.96);
+  color:#d1fae5;
+  box-shadow:none;
+  transition:background-color .16s ease,border-color .16s ease;
+}
+#mode-board.war { background:rgba(62,24,37,.96); border-color:#f87171; border-left-color:#fb7185; color:#ffe4e6; }
+#mode-board .hud-label { color:#a5d6ca; font-size:9px; margin-bottom:3px; }
+#mode-board.war .hud-label { color:#fecdd3; }
+#mode-board strong { display:block; margin:0 0 3px; font-size:17px; line-height:1.1; }
+#mode-board small { display:inline-block; margin:0 11px 0 0; font-size:11px; line-height:1.4; opacity:1; }
+#bonus-status { font-weight:800; color:#d1fae5; }
+#mode-board.war #bonus-status { color:#fde68a; }
+#danger-status {color:#a9e2cc; font-weight:650;}
+#mode-board.war #danger-status { color:#ffc0c8; }
+#mode-board #war-lock-status { display:block; margin-top:3px; font-weight:750; font-size:10px; }
+#mode-board::after {
+  content:"";position:absolute;bottom:0;left:0;width:var(--risk-fill,0%);height:3px;
+  background:#34d399; border-radius:0 0 4px 4px;transition:width .15s linear;
+}
+#mode-board.war::after { background:#fb7185; }
+#game.war-mode::after { border:2px solid rgba(251,113,133,.5); }
+#feedback-layer {top:201px;} /* Original 173px + 28px: centered, just below the mode card */
+#feedback-primary {font-size:31px;}
+#feedback-secondary {font-size:17px;}
+/* 정보 표시와 조작 버튼의 클릭 이벤트는 기존대로 유지 */
+
+/* STEP 6-4.3.1 — 시작 화면: 핵심 규칙과 행동 버튼에 시선 집중. 게임 플레이 HUD는 변경하지 않음. */
+#start-screen { background:radial-gradient(ellipse at 50% 40%, rgba(43,91,165,.16), transparent 60%), #091426; }
+#start-screen .intro-card {
+  width:830px; max-width:100%;
+  padding:18px 28px;
+  gap:10px;
+  background:#17243a;
+  border:1px solid #466080;
+  border-radius:18px;
+  box-shadow:0 16px 48px rgba(0,0,0,.22);
+}
+#start-screen .intro-card h1 {font-size:32px;letter-spacing:-.035em;}
+#start-screen .intro-icon {height:35px;}
+#start-screen .eyebrow {letter-spacing:.13em;}
+#start-screen .rules {gap:8px;max-width:100%;margin-top:2px;}
+#start-screen .rules span {
+  border-radius:8px;background:#223550;border:1px solid #3c5575;
+  font-size:11px;padding:7px 12px;
+}
+#start-screen .mode-guide {
+  margin:0;max-width:730px;color:#bdcfe8;font-size:11px;line-height:1.5;
+  text-align:center;
+}
+#start-screen .mode-guide strong {color:#fda4af;font-weight:800;}
+#start-screen .difficulty-picker {width:min(100%,580px);max-width:none;margin-top:0;gap:5px;font-size:12px;}
+#start-screen #difficulty {background:#101d32;border-color:#59718f;padding:9px 12px;font-size:13px;}
+#start-screen .meta-bar {width:100%;gap:8px;}
+#start-screen .meta-bar span {padding:7px 12px;border:1px solid #3c526e;background:#21324c;font-size:12px;}
+#start-screen .start-actions {width:min(100%,580px);grid-template-columns:minmax(0,2fr) minmax(140px,1fr);gap:10px;}
+#start-screen .start-actions button {padding:11px 12px;font-size:15px;border-radius:10px;}
+#start-screen .meta-actions {gap:10px;}
+#start-screen .meta-actions button {background:transparent;border:1px solid #465d7b;color:#bfcfe4;font-size:11px;padding:6px 12px;}
+#start-screen .microcopy {display:none;}
+/* 카드의 바깥에 위치한 사운드 버튼과 간섭하지 않도록 유지 */
+#game:has(#start-screen:not([hidden])) #sound-button {right:10px;top:6px;}
+
+
+/* STEP 6-4.3.2 — Shop and personal records: consistent hierarchy / 960x540 fit.
+   Purely presentational: game logic, storage, prices and hitboxes unchanged. */
+#shop-overlay, #achievements-overlay {
+  background:rgba(6,13,26,.97);
+  padding:14px;
+  overflow:hidden;
+  align-items:center;
+  justify-items:center;
+}
+#shop-overlay .shop-card,
+#achievements-overlay .meta-dialog {
+  width:min(100%,650px);
+  max-height:100%;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  border:1px solid #3a536f;
+  border-radius:16px;
+  background:#15243b;
+  box-shadow:0 16px 44px rgba(0,0,0,.27);
+  scrollbar-width:thin;
+  scrollbar-color:#506b8f #17263b;
+}
+#shop-overlay .shop-card {gap:10px;padding:16px 18px;}
+#achievements-overlay .meta-dialog {gap:9px;padding:16px 18px;}
+#shop-overlay .shop-heading,
+#achievements-overlay .meta-heading {
+  position:relative;
+  align-items:center;
+  padding-bottom:10px;
+  border-bottom:1px solid #354c68;
+}
+#shop-overlay .shop-heading h2 {font-size:24px;letter-spacing:-.035em;margin:2px 0 0;}
+#shop-overlay .shop-heading .eyebrow {font-size:10px;color:#94bfff;}
+#achievements-overlay .meta-heading h2 {font-size:19px;letter-spacing:-.02em;}
+#shop-close-button, #achievements-close {
+  flex:0 0 auto;
+  min-width:35px;
+  min-height:35px;
+  padding:5px 10px;
+  background:#263a54;
+  border:1px solid #47617e;
+  border-radius:9px;
+}
+#shop-close-button:hover, #achievements-close:hover {background:#35506e;}
+#shop-overlay .shop-wallet {
+  gap:8px;
+  padding:10px 12px;
+  background:#1d314b;
+  border:1px solid #3d5777;
+  border-radius:10px;
+  color:#dce8f7;
+  font-size:12px;
+}
+#shop-overlay .shop-wallet strong {font-size:16px;color:#fde68a;}
+#shop-overlay .shop-product {
+  gap:12px;
+  background:#1b2e49;
+  border:1px solid #395678;
+  border-radius:12px;
+  padding:13px 14px;
+}
+#shop-overlay .shop-symbol {
+  display:grid;
+  place-items:center;
+  flex:0 0 56px;
+  width:56px;
+  height:56px;
+  font-size:30px;
+  line-height:1;
+  border-radius:12px;
+  background:#233e59;
+  border:1px solid #466988;
+}
+#shop-overlay .shop-product-info strong {font-size:16px;letter-spacing:-.02em;}
+#shop-overlay .shop-product-info p {font-size:12px;margin:4px 0;color:#d6e5f7;}
+#shop-overlay .shop-product-info small {display:block;font-size:10px;line-height:1.5;color:#a4bad7;}
+#shop-overlay .shop-purchase {
+  background:#142238;
+  border:1px solid #344d6b;
+  border-radius:11px;
+  padding:10px 12px;
+}
+#shop-overlay .shop-purchase > strong {font-size:21px;white-space:nowrap;}
+#shop-overlay .shop-purchase button {min-width:150px;font-size:13px;padding:10px 12px;}
+#shop-overlay #shop-message {font-size:11px;line-height:1.45;min-height:0;}
+#shop-overlay .shop-footnote {font-size:10px;color:#93a9c7;}
+#achievements-overlay .record-summary {gap:9px;grid-template-columns:repeat(4,minmax(0,1fr));}
+#achievements-overlay .record-cell {
+  background:#1f3450;
+  border:1px solid #395674;
+  border-top:2px solid #60a5fa;
+  border-radius:10px;
+  padding:10px;
+  min-width:0;
+  gap:4px;
+}
+#achievements-overlay .record-cell span {font-size:10px;color:#abc2df;}
+#achievements-overlay .record-cell strong {font-size:18px;white-space:nowrap;}
+#achievements-overlay .meta-dialog h3 {
+  font-size:12px;
+  letter-spacing:.08em;
+  color:#a9c7ec;
+  margin:2px 0 0;
+}
+#achievements-overlay .achievements-list {grid-template-columns:1fr 1fr;gap:8px;}
+#achievements-overlay .achievement-row {
+  padding:10px 11px;
+  min-height:61px;
+  border:1px solid #3b5574;
+  border-radius:10px;
+  background:#1e304a;
+  gap:9px;
+}
+#achievements-overlay .achievement-row.unlocked {
+  border-color:#3a826a;
+  background:#173b3a;
+}
+#achievements-overlay .achievement-row.locked {opacity:1;}
+#achievements-overlay .achievement-row.locked .achievement-symbol,
+#achievements-overlay .achievement-row.locked .achievement-state {opacity:.6;}
+#achievements-overlay .achievement-symbol {font-size:20px;flex:0 0 23px;}
+#achievements-overlay .achievement-row strong {font-size:12px;color:#e7efff;}
+#achievements-overlay .achievement-row small {font-size:10px;color:#abc0da;line-height:1.35;}
+#achievements-overlay .achievement-state {
+  font-size:10px;
+  white-space:nowrap;
+  color:#9eb2d0;
+  padding:3px 6px;
+  border-radius:7px;
+  background:rgba(12,23,41,.5);
+}
+#achievements-overlay .achievement-row.unlocked .achievement-state {color:#86efac;}
+#achievements-overlay .meta-note {color:#8fa8c8;font-size:10px;}
+@media (max-width:620px) {
+  #shop-overlay .shop-card, #achievements-overlay .meta-dialog {padding:13px;}
+  #achievements-overlay .record-summary {grid-template-columns:repeat(2,minmax(0,1fr));}
+  #achievements-overlay .achievements-list {grid-template-columns:1fr;}
+  #achievements-overlay .record-cell strong {font-size:16px;}
+}
+
+/* STEP 6-4.3.2.1 — Clip the mode risk meter to the card's rounded corners.
+   Prevent the full 100% danger progress indicator from protruding at the right edge. */
+#mode-board {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+
+/* STEP 6-4.3.3 — Result screen: single hierarchy, fixed-stage safe layout.
+   Keep all existing identifiers, game calculations, CSV and detail scrolling. */
+#end-screen {
+  padding:13px 22px 14px;
+  gap:9px;
+  background:radial-gradient(ellipse at 50% 0%,rgba(37,99,235,.11),transparent 58%),#0c1629;
+}
+#end-screen .result-summary {
+  width:min(100%,670px);
+  gap:6px;
+}
+#end-screen .eyebrow {font-size:10px;color:#94b8e8;letter-spacing:.13em;}
+#end-screen #end-title {font-size:29px;line-height:1.08;letter-spacing:-.035em;}
+#end-screen #end-reason {font-size:11px;color:#ed9cae !important;line-height:1.35;}
+#end-screen #end-stats {font-size:11px!important;color:#adc2df;line-height:1.3;}
+#end-screen .result-metrics {
+  width:100%;max-width:100%;gap:9px;margin:5px 0 0;
+  grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);
+}
+#end-screen .metric {
+  border-radius:11px;min-width:0;text-align:left;
+  padding:10px 14px;
+  background:#14243b;border:1px solid #39516d;border-top:2px solid #54769e;
+}
+#end-screen .metric:first-child {border-top-color:#60a5fa;background:#152943;}
+#end-screen .metric:last-child {border-top-color:#facc15;}
+#end-screen .metric .hud-label {display:block;font-size:10px;color:#a8c1e0;letter-spacing:.12em;margin-bottom:3px;}
+#end-screen .metric strong {font-size:29px;line-height:1.08;color:#f8fafc;font-variant-numeric:tabular-nums;}
+#end-screen .metric small {font-size:12px;color:#b7c8df;}
+#end-screen .result-rewards {
+  width:100%;display:grid;grid-template-columns:1fr 1fr;gap:0 12px;
+  padding:9px 12px;border-radius:10px;background:#132138;border:1px solid #2d4260;
+  text-align:left;min-width:0;
+}
+#end-screen .result-rewards p {font-size:11px!important;line-height:1.5!important;overflow-wrap:anywhere;}
+#end-screen #economy-result {grid-column:1/-1;color:#f9d97b;font-weight:750;}
+#end-screen #bonus-result {color:#bad5fc!important;font-weight:500;}
+#end-screen #shield-result {color:#aac6e3;font-weight:500;}
+#end-screen #record-announcement {
+  margin:0;padding:5px 10px;font-size:11px;color:#fde68a;
+  border:1px solid #79622b;border-radius:9px;background:#332b1c;
+}
+#end-screen .result-actions {
+  display:grid;grid-template-columns:1.35fr 1fr 1fr 0.75fr;
+  gap:7px;width:100%;max-width:100%;margin:3px 0 0;
+}
+#end-screen .result-actions button {
+  min-width:0;width:100%;padding:9px 6px;font-size:11px;
+  line-height:1.25;white-space:normal;border-radius:9px;
+  background:#253b57;border:1px solid #45627f;
+}
+#end-screen #play-again-button {background:#2563eb;border-color:#4386ff;font-weight:850;color:#fff;}
+#end-screen #play-again-button:hover {background:#1d4ed8;}
+#end-screen #export-csv-button {background:#1d4550;border-color:#377a83;}
+#end-screen #export-csv-button:hover {background:#23606b;}
+#end-screen #shop-end-button {background:#1a5350!important;border-color:#2e8f83!important;}
+#end-screen .result-meta-actions {gap:8px;margin:1px 0 0;width:100%;}
+#end-screen .result-meta-actions button {
+  flex:1;min-width:0;padding:7px 10px;font-size:11px;border-radius:9px;
+  background:#1d304b;border:1px solid #395471;color:#d5e4fa;
+}
+#end-screen #result-details {
+  width:min(100%,670px);max-width:670px;
+  margin:0;border-radius:10px;background:#132138;border-color:#314866;
+}
+#end-screen #result-details summary {
+  padding:11px 14px;font-size:12px;color:#c5d7f0;background:#14233a;border-color:#314866;
+}
+#end-screen #result-details summary span {transition:transform .15s ease;}
+#end-screen #result-details[open] summary {border-bottom:1px solid #36516e;}
+#end-screen #result-details .result-details-body {padding:10px 12px 15px;}
+@media(max-width:620px) {
+  #end-screen .result-rewards {grid-template-columns:1fr;padding:7px 10px;}
+  #end-screen #economy-result {grid-column:1;}
+  #end-screen .result-actions {grid-template-columns:repeat(2,minmax(0,1fr));}
+}
