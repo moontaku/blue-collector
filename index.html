@@ -18,6 +18,17 @@
 
       <div id="perf-panel" hidden><span id="perf-text">FPS 측정 중…</span><button id="effect-button" type="button" aria-pressed="true">✨ 연출 ON</button></div>
 
+      <!-- STEP 6-5.4.1: 사이트에 들어오면 먼저 나오는 3색 인트로 -->
+      <section id="color-intro" hidden aria-label="BLUE COLLECTOR 인트로">
+        <div class="intro-scanlines" aria-hidden="true"></div>
+        <div class="intro-sequence">
+          <div id="intro-symbol" class="intro-symbol blue" aria-hidden="true"></div>
+          <div id="intro-word" class="intro-word">YOU</div>
+          <div id="intro-sub" class="intro-sub">BLUE COLLECTOR</div>
+        </div>
+        <button id="intro-skip" type="button" aria-label="인트로 건너뛰기">SKIP →</button>
+      </section>
+
       <div id="start-screen">
         <div class="intro-card"><span class="eyebrow">BLUE SQUARE / ARCADE 01</span><div class="intro-icon" aria-hidden="true"><span class="blue-block"></span><span class="gold-dot"></span><span class="red-block"></span></div><h1>BLUE COLLECTOR</h1><p class="lead">30초 동안 노란 아이템을 모으고 빨간 추적자를 피하세요.</p><div class="rules" aria-label="기본 조작과 규칙"><span><b>WASD</b> 이동</span><span><b>SPACE</b> 전쟁 모드 전환</span><span><b>4초</b> 콤보</span><span><b>30초</b> 챌린지</span></div><p class="mode-guide"><strong>전쟁 모드</strong> 점수 보너스 +50% · 아이템 획득 시 적 속도 +5% (최대 +25%) · 마지막 획득 2초 후 안전 복귀</p>
         <label class="difficulty-picker" for="difficulty">장애물 속도
