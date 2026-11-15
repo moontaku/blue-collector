@@ -1238,7 +1238,7 @@ function loop(now) {
   if (running) animationId = requestAnimationFrame(loop);
 }
 
-function startGame() {
+function beginGame() {
   if (!helpOverlay.hidden) return;
   ensureAudio();
   selectedDifficulty = difficultySelect.value;
@@ -1303,9 +1303,59 @@ function startGame() {
   animationId = requestAnimationFrame(loop);
 }
 
-function restartGame() {
-  startGame();
+// STEP 6-5.4.1: 사이트 진입 시 3색 인트로를 보여준 뒤 메인 화면을 엽니다.
+const colorIntro = document.getElementById("color-intro");
+const introSymbol = document.getElementById("intro-symbol");
+const introWord = document.getElementById("intro-word");
+const introSub = document.getElementById("intro-sub");
+const introSkipButton = document.getElementById("intro-skip");
+const introScenes = [
+  { key:"blue", label:"YOU", sub:"THE PLAYER", ms:620 },
+  { key:"yellow", label:"COLLECT", sub:"THE REWARD", ms:620 },
+  { key:"red", label:"SURVIVE", sub:"THE DANGER", ms:620 },
+  { key:"logo", label:"BLUE COLLECTOR", sub:"COLLECT MORE. RISK MORE.", ms:850 }
+];
+let introTimeout = null;
+let introIsPlaying = false;
+function showIntroScene(index) {
+  if (!introIsPlaying) return;
+  if (index >= introScenes.length) { completeIntro(); return; }
+  const scene = introScenes[index];
+  introSymbol.className = "intro-symbol " + scene.key;
+  introWord.className = "intro-word " + scene.key;
+  introWord.textContent = scene.label;
+  introSub.textContent = scene.sub;
+  introTimeout = window.setTimeout(() => showIntroScene(index + 1), scene.ms);
 }
+function completeIntro() {
+  if (!introIsPlaying) return;
+  window.clearTimeout(introTimeout);
+  introTimeout = null;
+  introIsPlaying = false;
+  colorIntro.hidden = true;
+  if (!helpSeen) openHelp();
+  else startButton.focus();
+}
+function playLandingIntro() {
+  const reduceMotion = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion) {
+    colorIntro.hidden = true;
+    if (!helpSeen) openHelp();
+    return;
+  }
+  introIsPlaying = true;
+  colorIntro.hidden = false;
+  showIntroScene(0);
+  introSkipButton.focus();
+}
+function startGame() {
+  if (introIsPlaying || !helpOverlay.hidden) return;
+  beginGame();
+}
+introSkipButton.addEventListener("click", completeIntro);
+function restartGame() { startGame(); }
+
 
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space" && running) {
@@ -1364,7 +1414,7 @@ window.addEventListener("keydown", event => {
 });
 let helpSeen = false;
 try { helpSeen = localStorage.getItem(HELP_SEEN_KEY) === "1"; } catch (_) {}
-if (!helpSeen) openHelp();
+// 첫 방문 설명창은 인트로가 끝난 뒤에 엽니다.
 
 startButton.addEventListener("click", startGame);
 restartButton.addEventListener("click", restartGame);
@@ -1397,3 +1447,4 @@ resizeCanvas();
 placePlayerInCenter();
 resetItem();
 draw();
+playLandingIntro();
