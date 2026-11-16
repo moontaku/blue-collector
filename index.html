@@ -13,110 +13,189 @@
       <div id="score-board" hidden><span class="hud-label">SCORE</span><span id="score">0</span></div>
       <div id="timer-board" hidden><span class="hud-label">TIME LEFT</span><span><span id="time">30</span><small> s</small></span><span id="timer-track"><span id="timer-progress"></span></span></div>
       <div id="obstacle-board" hidden><span class="hud-label">CHASERS</span><span id="obstacle-count">1</span></div>
-      <div id="combo-board" hidden><span id="combo-text">콤보 없음</span><small id="combo-time"></small></div>
-      <div id="mode-board" class="safe" hidden aria-live="polite"><span class="hud-label">CURRENT MODE</span><strong id="mode-text">🛡 안전 모드</strong><small id="bonus-status">확정 전쟁 보너스 0점 · SPACE 전환</small><small id="danger-status">위험도 0/5 · 적 기본 속도</small><small id="war-lock-status" aria-live="off">SPACE · 전쟁 모드 진입</small></div>
+      <div id="combo-board" hidden><span class="hud-label">COMBO</span><span id="combo-text">콤보 없음</span><small id="combo-time"></small></div>
+      <div id="mode-board" class="safe" hidden aria-live="polite"><span class="hud-label">CURRENT MODE</span><strong id="mode-text">SAFE MODE</strong><small id="bonus-status">SECURED +0</small><small id="danger-status">RISK 0/5 / CHASERS 85px/s</small><small id="war-lock-status" aria-live="off">SPACE : WAR</small></div>
 
-      <div id="perf-panel" hidden><span id="perf-text">FPS 측정 중…</span><button id="effect-button" type="button" aria-pressed="true">✨ 연출 ON</button></div>
+      <div id="perf-panel" hidden><span id="perf-text">FPS 측정 중…</span><button id="effect-button" type="button" aria-pressed="true">EFFECTS ON</button></div>
 
-      <!-- STEP 6-5.4.1: 사이트에 들어오면 먼저 나오는 3색 인트로 -->
-      <section id="color-intro" hidden aria-label="BLUE COLLECTOR 인트로">
-        <div class="intro-scanlines" aria-hidden="true"></div>
-        <div class="intro-sequence">
-          <div id="intro-symbol" class="intro-symbol blue" aria-hidden="true"></div>
-          <div id="intro-word" class="intro-word">YOU</div>
-          <div id="intro-sub" class="intro-sub">BLUE COLLECTOR</div>
+      <!-- REDESIGN 03: 첫 진입 3색 인트로를 메인 메뉴와 같은 픽셀 그래픽으로 통일 -->
+      <section id="color-intro" hidden aria-label="BLUE COLLECTOR 시작 인트로">
+        <div class="intro-pixel-shell">
+          <header class="intro-pixel-top">
+            <span><span class="intro-led" aria-hidden="true"></span> BC / ARCADE</span>
+            <span id="intro-step-counter" aria-hidden="true">01 / 04</span>
+          </header>
+          <div id="intro-pixel-frame" class="intro-pixel-frame blue">
+            <div class="intro-frame-corner tl" aria-hidden="true"></div>
+            <div class="intro-frame-corner tr" aria-hidden="true"></div>
+            <div class="intro-frame-corner bl" aria-hidden="true"></div>
+            <div class="intro-frame-corner br" aria-hidden="true"></div>
+            <div class="intro-sequence">
+              <div class="intro-pixel-symbol-wrap" aria-hidden="true">
+                <div id="intro-symbol" class="intro-symbol blue"></div>
+              </div>
+              <canvas id="intro-lettering" width="640" height="206" aria-hidden="true"></canvas>
+              <div id="intro-word" class="intro-word">YOU</div>
+              <div id="intro-sub" class="intro-sub">BLUE / PLAYER</div>
+            </div>
+            <div class="intro-pixel-footer" aria-hidden="true"><span id="intro-color-label">BLUE / 01</span><span>30 SECOND CHALLENGE</span></div>
+          </div>
+          <footer class="intro-bottom">
+            <div id="intro-progress" class="intro-progress" aria-hidden="true"><i class="active"></i><i></i><i></i><i></i></div>
+            <button id="intro-skip" type="button" aria-label="인트로 건너뛰기">SKIP <span aria-hidden="true">[ SPACE ]</span></button>
+          </footer>
         </div>
-        <button id="intro-skip" type="button" aria-label="인트로 건너뛰기">SKIP →</button>
       </section>
 
-      <div id="start-screen">
-        <div class="intro-card"><span class="eyebrow">BLUE SQUARE / ARCADE 01</span><div class="intro-icon" aria-hidden="true"><span class="blue-block"></span><span class="gold-dot"></span><span class="red-block"></span></div><h1>BLUE COLLECTOR</h1><p class="lead">30초 동안 노란 아이템을 모으고 빨간 추적자를 피하세요.</p><div class="rules" aria-label="기본 조작과 규칙"><span><b>WASD</b> 이동</span><span><b>SPACE</b> 전쟁 모드 전환</span><span><b>4초</b> 콤보</span><span><b>30초</b> 챌린지</span></div><p class="mode-guide"><strong>전쟁 모드</strong> 점수 보너스 +50% · 아이템 획득 시 적 속도 +5% (최대 +25%) · 마지막 획득 2초 후 안전 복귀</p>
-        <label class="difficulty-picker" for="difficulty">장애물 속도
-          <select id="difficulty">
-            <option value="easy">쉬움 — 55px/초</option>
-            <option value="normal" selected>보통 — 85px/초</option>
-            <option value="hard">어려움 — 115px/초</option>
-          </select>
-        </label>
-        <div class="meta-bar"><span>🪙 보유 코인 <strong id="start-coins">0</strong></span><span>🏆 최고 점수 <strong id="start-best">0</strong></span><span>🛡 보호막 <strong id="start-shields">0</strong>/3</span></div><div class="start-actions"><button id="start-button" type="button">게임 시작 →</button><button id="shop-start-button" class="shop-open-button" type="button">🛒 상점</button></div><div class="meta-actions"><button id="help-start-button" type="button">❔ 게임 방법</button><button id="achievements-start-button" type="button">🏆 기록·도전 과제</button><button id="settings-start-button" type="button">⚙ 데이터 관리</button></div><p class="microcopy">WASD 이동 · SPACE 모드 전환 · 30초 챌린지</p></div>
-      </div>
+      <!-- REDESIGN 02: 픽셀 아케이드 / 첫 화면은 선택, 다음 화면은 기능별 독립 페이지 -->
+      <section id="start-screen" aria-label="BLUE COLLECTOR 메인 메뉴">
+        <div class="pixel-starfield" aria-hidden="true"></div>
+        <header class="pixel-topline">
+          <span class="pixel-brand"><span class="pixel-dot" aria-hidden="true"></span> BLUE COLLECTOR <span class="pixel-top-sub">/ ARCADE</span></span>
+          <span class="pixel-top-score">BEST <strong id="start-best">000000</strong></span>
+        </header>
+        <main class="pixel-cabinet">
+          <canvas id="menu-demo-canvas" aria-hidden="true"></canvas>
+          <div class="pixel-cabinet-inner">
+            <section class="pixel-hero" aria-label="게임 소개">
+              <span class="pixel-hero-top"><span class="pixel-marker blue"></span> 30 SECOND CHALLENGE</span>
+              <h1 class="pixel-title-accessible">BLUE COLLECTOR</h1>
+              <canvas id="pixel-title-canvas" width="476" height="190" aria-hidden="true"></canvas>
+              <p class="pixel-subtitle">COLLECT MORE. <span>RISK MORE.</span></p>
+              <div class="pixel-legend" aria-label="게임의 세 가지 색상 규칙">
+                <span><i class="pixel-swatch player"></i> YOU</span>
+                <span><i class="pixel-swatch item"></i> COLLECT</span>
+                <span><i class="pixel-swatch danger"></i> SURVIVE</span>
+              </div>
+            </section>
+            <nav class="pixel-nav" aria-label="게임 메뉴">
+              <div class="pixel-nav-title">PRESS TO PLAY <span class="pixel-arrow" aria-hidden="true">▸</span></div>
+              <button id="start-button" type="button" class="pixel-start"><span class="pixel-start-icon" aria-hidden="true">▶</span> START GAME <span class="pixel-button-suffix" aria-hidden="true">01</span></button>
+              <div class="pixel-secondary-menu">
+                <button id="help-start-button" type="button"><span class="pixel-menu-idx">02</span> HOW TO PLAY <span aria-hidden="true">›</span></button>
+                <button id="achievements-start-button" type="button"><span class="pixel-menu-idx">03</span> RECORDS <span aria-hidden="true">›</span></button>
+                <button id="shop-start-button" type="button"><span class="pixel-menu-idx">04</span> SHOP <span aria-hidden="true">›</span></button>
+                <button id="settings-start-button" type="button"><span class="pixel-menu-idx">05</span> SETTINGS <span aria-hidden="true">›</span></button>
+              </div>
+              <label class="difficulty-picker" for="difficulty"><span>SELECT LEVEL</span><select id="difficulty"><option value="easy">EASY</option><option value="normal" selected>NORMAL</option><option value="hard">HARD</option></select></label>
+            </nav>
+          </div>
+          <div class="pixel-stage-bottom" aria-hidden="true"><span></span></div>
+        </main>
+        <footer class="pixel-footer">
+          <span class="pixel-controls-caption"><b>WASD</b> MOVE <b>SPACE</b> WAR MODE</span>
+          <span class="pixel-wallet">COINS <strong id="start-coins">0</strong> <span class="pixel-foot-divider">/</span> SHIELD <strong id="start-shields">0</strong>/3</span>
+        </footer>
+      </section>
 
       <section id="help-overlay" hidden class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" aria-describedby="help-intro">
         <div class="help-dialog">
-          <div class="help-head"><span class="eyebrow">HOW TO PLAY / 30 SEC</span><button id="help-close-button" type="button" aria-label="게임 방법 닫기">✕</button></div>
-          <h2 id="help-title">30초 동안 모으고, 살아남으세요.</h2>
+          <div class="help-head"><span class="eyebrow">PLAYER MANUAL</span><button id="help-close-button" type="button" aria-label="메인 메뉴로 돌아가기">← BACK</button></div>
+          <h2 id="help-title">HOW TO PLAY</h2>
           <p id="help-intro">노란 아이템을 먹어 점수를 올리고 빨간 추적자를 피하세요.</p>
           <div class="help-steps">
-            <div class="help-step"><span class="help-number">01</span><div><strong>WASD로 이동</strong><p>노란 아이템을 모으세요. 4초 안에 연속으로 먹으면 콤보가 쌓여요.</p></div></div>
-            <div class="help-step"><span class="help-number">02</span><div><strong>SPACE로 전쟁 모드 전환</strong><p>아이템 점수의 50%를 보너스로 모아요. 대신 먹을수록 적이 빨라져요.</p></div></div>
-            <div class="help-step"><span class="help-number">03</span><div><strong>2초 버티고, SPACE로 안전 복귀</strong><p>전쟁 중 아이템을 먹었다면 마지막 획득 후 2초를 버텨야 돌아올 수 있어요. 안전 복귀 또는 30초 완주 시 보너스가 확정돼요.</p></div></div>
+            <div class="help-step"><span class="help-number">01</span><div class="help-rule-art" aria-hidden="true"><span class="help-blue-square"></span><span class="help-keycaps"><b>W</b><span><b>A</b><b>S</b><b>D</b></span></span></div><div><strong>WASD로 이동</strong><p>노란 아이템을 모으세요. 4초 안에 다시 먹으면 콤보가 이어져요.</p></div></div>
+            <div class="help-step"><span class="help-number">02</span><div class="help-rule-art" aria-hidden="true"><span class="help-yellow-diamond"></span><span class="help-rule-plus">+</span><span class="help-blue-square war"></span><span class="help-war-tag">WAR</span></div><div><strong>SPACE로 전쟁 모드 전환</strong><p>획득 점수의 50%를 보너스로 모아요. 먹을수록 적이 빨라져요.</p></div></div>
+            <div class="help-step"><span class="help-number">03</span><div class="help-rule-art" aria-hidden="true"><span class="help-red-enemy"></span><span class="help-survive-label">2초 생존</span></div><div><strong>2초 버티고, SPACE로 안전 복귀</strong><p>마지막 전쟁 아이템 획득 후 2초 생존하면 복귀 가능. 복귀 또는 완주 시 보너스가 확정돼요.</p></div></div>
           </div>
           <p class="help-warning">보호막 없이 전쟁 모드에서 충돌하면 아직 확정하지 않은 보너스는 잃어요.</p>
-          <button id="help-done-button" type="button">알겠어요 · 게임 시작하기</button>
-          <p class="help-footnote">다음부터 자동으로 열리지 않아요. 메인 화면의 ‘게임 방법’에서 다시 볼 수 있어요.</p>
+          <button id="help-done-button" type="button" hidden>START GAME →</button>
+          <p class="help-footnote">30초 동안 모으고, 위험을 관리하세요. 게임 방법은 언제든 메인 메뉴에서 다시 볼 수 있어요.</p>
         </div>
       </section>
 
-      <button id="restart-button" type="button" hidden>다시 시작</button>
-      <button id="sound-button" type="button" aria-pressed="true">🔊 사운드 ON</button>
-      <button id="bgm-button" type="button" aria-pressed="false">♫ BGM OFF</button>
+      <button id="restart-button" type="button" aria-label="다시 시작" hidden>RESTART</button>
+      <button id="sound-button" type="button" aria-pressed="true">SFX ON</button>
+      <button id="bgm-button" type="button" aria-pressed="false">MUSIC OFF</button>
 
+      <!-- REDESIGN 06: End-of-run pixel arcade results; preserve existing control/data IDs. -->
       <div id="end-screen" hidden>
-        <div class="result-summary">
-          <span class="eyebrow">RUN COMPLETE / RESULT</span>
-          <h1 id="end-title">시간 종료!</h1>
-          <p id="end-reason">30초가 지났어요.</p>
-          <p id="end-stats">생존 시간: 0초</p>
-          <div class="result-metrics">
-            <div class="metric"><span class="hud-label">FINAL SCORE</span><div><strong id="final-score">0</strong><small> 점</small></div></div>
-            <div class="metric"><span class="hud-label">BEST COMBO</span><div><strong id="final-combo">0연속</strong></div></div>
+        <div class="pixel-result-shell">
+          <header class="pixel-result-topline">
+            <span class="pixel-result-topbrand"><i aria-hidden="true"></i> BC / ARCADE</span>
+            <p id="end-stats">NORMAL / 0.0s</p>
+          </header>
+
+          <main class="pixel-result-frame">
+            <div class="pixel-result-inner">
+              <section class="pixel-result-hero">
+                <span class="pixel-result-kicker"><i aria-hidden="true"></i> GAME RESULT</span>
+                <h1 id="end-title">RUN COMPLETE</h1>
+                <p id="end-reason">30초가 지났어요.</p>
+                <span class="pixel-result-score-label">FINAL SCORE</span>
+                <div class="pixel-result-score-line"><strong id="final-score">0</strong><span>PTS</span></div>
+                <p id="result-best-comparison" class="pixel-result-best" role="status">BEST 0 (0)</p>
+                <p id="record-announcement" role="status" hidden></p>
+              </section>
+              <section class="pixel-result-stats" aria-label="이번 플레이 주요 기록">
+                <div class="pixel-result-stat">
+                  <span>MAX COMBO</span><strong id="final-combo">0 HIT</strong>
+                </div>
+                <div class="pixel-result-stat">
+                  <span>WAR BONUS</span><strong id="result-war-bonus">+0</strong>
+                </div>
+                <div class="pixel-result-stat">
+                  <span>COINS EARNED</span><strong id="result-coin-earned">+0</strong>
+                </div>
+              </section>
+            </div>
+            <div class="pixel-result-raster" aria-hidden="true"></div>
+          </main>
+
+          <nav class="pixel-result-actions" aria-label="게임 종료 메뉴">
+            <button id="play-again-button" class="pixel-retry" type="button">▶ PLAY AGAIN</button>
+            <button id="change-difficulty-button" type="button">MAIN MENU</button>
+            <button id="shop-end-button" class="shop-open-button" type="button">SHOP</button>
+          </nav>
+          <div class="pixel-result-tools" aria-label="추가 메뉴">
+            <button id="achievements-end-button" type="button">RECORDS</button>
+            <button id="settings-end-button" type="button">SETTINGS</button>
+            <button id="export-csv-button" type="button">EXPORT CSV</button>
           </div>
-          <div class="result-rewards" aria-label="이번 플레이 보상 및 전쟁 결과">
-            <p id="economy-result">이번 판 +0 코인 · 보유 0 코인 · 최고 기록 0점</p>
-            <p id="bonus-result">전쟁 보너스: 확정 +0점 · 손실 0점</p>
-            <p id="shield-result">보호막 사용 없음</p>
-          </div>
-          <p id="record-announcement" role="status" hidden></p>
-          <div class="result-actions">
-            <button id="play-again-button" type="button">↻ 같은 난이도로 다시 플레이</button>
-            <button id="change-difficulty-button" type="button">난이도 바꾸기</button>
-            <button id="export-csv-button" type="button">↓ CSV 저장</button><button id="shop-end-button" class="shop-open-button" type="button">🛒 상점</button>
-          </div><div class="meta-actions result-meta-actions"><button id="achievements-end-button" type="button">🏆 기록·도전 과제</button><button id="settings-end-button" type="button">⚙ 데이터 관리</button></div>
-        </div>
-        <details id="result-details">
-          <summary>플레이 기록 · 난이도별 통계 보기 <span aria-hidden="true">⌄</span></summary>
-          <div class="result-details-body">
-            <p id="performance-result" hidden>성능 측정: -</p><div id="records"><h2>최근 플레이 기록</h2><ol id="record-list"></ol></div>
-            <section id="test-report" aria-label="난이도별 테스트 통계">
-              <h2>난이도별 플레이 통계</h2>
-              <p class="report-note">이 페이지에서 완료된 플레이만 집계합니다. 새로고침하면 기록은 초기화됩니다.</p>
-              <div class="report-scroll">
-                <table>
-                  <thead><tr><th>난이도</th><th>횟수</th><th>평균 점수</th><th>평균 생존</th><th>완주율</th><th>평균 최대 콤보</th></tr></thead>
+
+          <details id="result-details">
+            <summary>RUN DETAILS / PLAY LOG <span aria-hidden="true">+</span></summary>
+            <div class="result-details-body">
+              <section class="pixel-result-ledger" aria-label="점수 정산 내역">
+                <h2>SCORE BREAKDOWN</h2>
+                <p id="economy-result">기본 점수 0점 · 0코인 획득</p>
+                <p id="bonus-result">전쟁 보너스: 확정 +0점 · 손실 0점</p>
+                <p id="shield-result">보호막 사용 없음</p>
+              </section>
+              <p id="performance-result" hidden>성능 측정: -</p>
+              <div id="records"><h2>RECENT RUNS</h2><ol id="record-list"></ol></div>
+              <section id="test-report" aria-label="난이도별 테스트 통계">
+                <h2>PLAYTEST SUMMARY</h2>
+                <p class="report-note">이 페이지에서 완료된 플레이만 집계합니다. 새로고침하면 기록은 초기화됩니다.</p>
+                <div class="report-scroll"><table>
+                  <thead><tr><th>LEVEL</th><th>RUNS</th><th>AVG SCORE</th><th>AVG SURVIVAL</th><th>CLEAR RATE</th><th>AVG MAX COMBO</th></tr></thead>
                   <tbody id="summary-body"></tbody>
-                </table>
-              </div>
-            </section>
-          </div>
-        </details>
+                </table></div>
+              </section>
+            </div>
+          </details>
+        </div>
       </div>
       <section id="achievements-overlay" class="meta-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="achievements-title">
-        <div class="meta-dialog"><div class="meta-heading"><h2 id="achievements-title">🏆 개인 기록 · 도전 과제</h2><button id="achievements-close" type="button" aria-label="기록 창 닫기">✕</button></div>
-          <div id="record-summary" class="record-summary"></div><h3>도전 과제</h3><div id="achievements-list" class="achievements-list"></div>
+        <div class="meta-dialog"><div class="meta-heading"><div><span class="eyebrow">PLAYER HISTORY</span><h2 id="achievements-title">RECORDS</h2></div><button id="achievements-close" type="button" aria-label="메인 메뉴로 돌아가기">← BACK</button></div>
+          <div id="record-summary" class="record-summary"></div><h3>ACHIEVEMENTS</h3><div id="achievements-list" class="achievements-list"></div>
           <p class="meta-note">기록은 이 브라우저에만 저장됩니다. 도전 과제는 코인을 지급하지 않습니다.</p></div>
       </section>
       <section id="settings-overlay" class="meta-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
-        <div class="meta-dialog"><div class="meta-heading"><h2 id="settings-title">⚙ 데이터 관리</h2><button id="settings-close" type="button" aria-label="설정 창 닫기">✕</button></div>
-          <p class="meta-note">초기화한 저장 데이터는 되돌릴 수 없습니다. 실행 전에 확인창이 한 번 더 나옵니다.</p>
-          <div class="reset-actions"><button id="reset-records" type="button">최고 기록·도전 과제 초기화</button><button id="reset-wallet" type="button">코인·보호막 초기화</button><button id="reset-all" type="button">전체 데이터 초기화</button></div>
-          <p id="reset-message" role="status"></p></div>
+        <div class="meta-dialog"><div class="meta-heading"><div><span class="eyebrow">OPTIONS</span><h2 id="settings-title">SETTINGS</h2></div><button id="settings-close" type="button" aria-label="메인 메뉴로 돌아가기">← BACK</button></div>
+          <div class="pixel-settings-audio"><button id="settings-sound-toggle" type="button">SFX ON</button><button id="settings-bgm-toggle" type="button">MUSIC OFF</button></div><h3 class="settings-data-heading">SAVE DATA</h3><p class="meta-note">기록은 이 브라우저에 저장됩니다. 초기화는 되돌릴 수 없으며 실행 전 확인합니다.</p>
+          <div class="reset-actions"><button id="reset-records" type="button">RESET RECORDS</button><button id="reset-wallet" type="button">RESET WALLET</button><button id="reset-all" type="button">RESET ALL</button></div>
+          <p id="reset-message" role="status"></p>
+          <section class="pixel-build-info" aria-label="빌드 정보">
+            <div><span>VERSION</span><strong id="game-version">v1.0.0</strong></div>
+          </section></div>
       </section>
       <section id="shop-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="shop-title">
         <div class="shop-card">
-          <div class="shop-heading"><div><span class="eyebrow">BLUE SQUARE / META LOOP</span><h2 id="shop-title">ITEM SHOP</h2></div><button id="shop-close-button" type="button" aria-label="상점 닫기">✕</button></div>
-          <div class="shop-wallet"><span>🪙 보유 코인 <strong id="shop-coins">0</strong></span><span>🛡 보유 보호막 <strong id="shop-shields">0</strong>/3</span></div>
-          <div class="shop-product"><div class="shop-symbol">🛡</div><div class="shop-product-info"><strong>1회용 보호막</strong><p>전쟁 모드에서만 충돌 1회 방어 · 발동 후 1초 무적</p><small>한 판에 최대 1개 사용 · 안전 모드 충돌 시 보호막 미소모 · 보너스 유지</small></div></div>
-          <div class="shop-purchase"><strong>🪙 1,000</strong><button id="buy-shield-button" type="button">보호막 구매</button></div>
+          <div class="shop-heading"><div><span class="eyebrow">ITEM STATION</span><h2 id="shop-title">ITEM SHOP</h2></div><button id="shop-close-button" type="button" aria-label="메인 메뉴로 돌아가기">← BACK</button></div>
+          <div class="shop-wallet"><span>COINS <strong id="shop-coins">0</strong></span><span>SHIELD <strong id="shop-shields">0</strong>/3</span></div>
+          <div class="shop-product"><div class="shop-symbol" aria-label="보호막"><span class="pixel-shield-icon" aria-hidden="true"></span></div><div class="shop-product-info"><strong>1회용 보호막</strong><p>전쟁 모드에서만 충돌 1회 방어 · 발동 후 1초 무적</p><small>한 판에 최대 1개 사용 · 안전 모드 충돌 시 보호막 미소모 · 보너스 유지</small></div></div>
+          <div class="shop-purchase"><strong>1,000 C</strong><button id="buy-shield-button" type="button">BUY SHIELD</button></div>
           <p id="shop-message" role="status">기본 점수만 코인으로 지급해요. 전쟁 보너스는 최종 점수에만 포함됩니다.</p>
           <p class="shop-footnote">코인·보호막·최고 기록은 이 브라우저에 저장됩니다. 다른 기기와 동기화되지 않아요.</p>
         </div>
