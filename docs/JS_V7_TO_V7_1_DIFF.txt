@@ -1,0 +1,30 @@
+--- REDESIGN_07/game.js
++++ REDESIGN_07_1/game.js
+@@ -1471,8 +1471,11 @@
+   if (running || !shopOverlay.hidden || !achievementsOverlay.hidden || !settingsOverlay.hidden) return;
+   previousHelpFocus = trigger || document.activeElement;
+   helpOverlay.hidden = false;
+-  helpDoneButton.textContent = startAfterHelp ? "START GAME →" : "BACK TO MENU ←";
+-  helpDoneButton.focus();
++  // HOW TO PLAY를 메뉴에서 직접 연 경우 BACK은 상단에 하나만 표시한다.
++  // 첫 START 클릭으로 들어왔다면 기존 게임 시작 흐름을 위해 하단 START GAME만 표시한다.
++  helpDoneButton.hidden = !startAfterHelp;
++  helpDoneButton.textContent = "START GAME →";
++  (startAfterHelp ? helpDoneButton : helpCloseButton).focus();
+ }
+ function closeHelp() {
+   if (helpOverlay.hidden) return;
+@@ -1495,10 +1498,10 @@
+   if (event.key === "Escape") { event.preventDefault(); closeHelp(); }
+   // 게임 키 입력 및 뒤쪽 버튼으로 포커스가 이동하지 않도록 팝업 내부에 묶습니다.
+   if (event.key === "Tab") {
+-    const focusables = [helpCloseButton, helpDoneButton];
++    const focusables = startAfterHelp ? [helpCloseButton, helpDoneButton] : [helpCloseButton];
+     const index = focusables.indexOf(document.activeElement);
+-    if (event.shiftKey && (index === 0 || index === -1)) { event.preventDefault(); helpDoneButton.focus(); }
+-    else if (!event.shiftKey && index === focusables.length - 1) { event.preventDefault(); helpCloseButton.focus(); }
++    if (event.shiftKey && (index === 0 || index === -1)) { event.preventDefault(); focusables[focusables.length - 1].focus(); }
++    else if (!event.shiftKey && index === focusables.length - 1) { event.preventDefault(); focusables[0].focus(); }
+   }
+ });
+ let helpSeen = false;
