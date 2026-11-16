@@ -2,6 +2,7 @@ const canvas = document.getElementById("canvas");
 const GAME_WIDTH = 960;
 const GAME_HEIGHT = 540;
 const gameStage = document.getElementById("game");
+const feedbackLayer = document.getElementById("feedback-layer");
 const feedbackPrimary = document.getElementById("feedback-primary");
 const feedbackSecondary = document.getElementById("feedback-secondary");
 let feedbackUntil = 0;
@@ -12,6 +13,7 @@ function showFeedback(primary, secondary = "", kind = "", duration = 1000, prior
   if (now < feedbackUntil && priority < feedbackPriority) return;
   feedbackPriority = priority;
   feedbackUntil = now + duration;
+  feedbackLayer.classList.toggle("mode-change", kind.includes("mode-change"));
   feedbackPrimary.textContent = primary;
   feedbackSecondary.textContent = secondary;
   feedbackPrimary.className = `active ${kind}`;
@@ -21,6 +23,7 @@ function updateFeedback(now) {
   if (feedbackUntil && now >= feedbackUntil) {
     feedbackUntil = 0;
     feedbackPriority = 0;
+    feedbackLayer.classList.remove("mode-change");
     feedbackPrimary.className = "";
     feedbackSecondary.className = "";
     feedbackPrimary.textContent = "";
@@ -70,12 +73,13 @@ const perfByMode = {
 };
 let lastPerfDisplay = "";
 function updateEffectButton() {
-  effectButton.textContent = effectsEnabled ? "✨ 연출 ON" : "연출 OFF";
+  effectButton.textContent = effectsEnabled ? "EFFECTS ON" : "EFFECTS OFF";
   effectButton.setAttribute("aria-pressed", String(effectsEnabled));
   gameStage.classList.toggle("low-effects", !effectsEnabled);
   if (!effectsEnabled) {
     feedbackUntil = 0;
     feedbackPriority = 0;
+    feedbackLayer.classList.remove("mode-change");
     feedbackPrimary.className = "";
     feedbackSecondary.className = "";
     feedbackPrimary.textContent = "";
@@ -193,7 +197,7 @@ function playEndSound(reason) {
   }
 }
 function updateSoundButton() {
-  soundButton.textContent = soundEnabled ? "🔊 사운드 ON" : "🔇 사운드 OFF";
+  soundButton.textContent = soundEnabled ? "SFX ON" : "SFX OFF";
   soundButton.setAttribute("aria-pressed", String(soundEnabled));
 }
 soundButton.addEventListener("click", () => {
@@ -201,22 +205,25 @@ soundButton.addEventListener("click", () => {
   updateSoundButton();
   if (soundEnabled) ensureAudio();
 });
+updateSoundButton(); // 최초 진입 시에도 이모지 대신 상태 텍스트를 표시
 
 
-// STEP 6-5.3: 테스트에서 사용한 오리지널 BGM. 효과음과 분리된 설정.
+
+// STEP 6-5.3: 독립적인 테스트용 BGM. 효과음과 별도 설정이며 첫 실행은 OFF.
+// 이 오디오는 프로젝트를 위해 새로 만든 루프 파일이며 외부 네트워크를 사용하지 않습니다.
 const bgmButton = document.getElementById("bgm-button");
 const bgmAudio = new Audio("blue-collector-bgm-original.wav");
 bgmAudio.loop = true;
 bgmAudio.preload = "auto";
-bgmAudio.volume = 0.18;
+bgmAudio.volume = 0.18; // 효과음보다 낮게
 let bgmEnabled = false;
 function updateBgmButton() {
-  bgmButton.textContent = bgmEnabled ? "♫ BGM ON" : "♫ BGM OFF";
+  bgmButton.textContent = bgmEnabled ? "MUSIC ON" : "MUSIC OFF";
   bgmButton.setAttribute("aria-pressed", String(bgmEnabled));
 }
 function startBgm() {
   if (!bgmEnabled || !running) return;
-  bgmAudio.play().catch(() => { /* 파일 로드 또는 브라우저 재생 제한 시 게임은 정상 진행 */ });
+  bgmAudio.play().catch(() => { /* 브라우저의 재생 제한 시 게임은 계속 실행 */ });
 }
 function stopBgm() {
   bgmAudio.pause();
@@ -228,6 +235,25 @@ bgmButton.addEventListener("click", () => {
   if (bgmEnabled) startBgm();
   else stopBgm();
 });
+updateBgmButton(); // 초기 버튼도 픽셀 메뉴 표기와 통일
+
+
+// REDESIGN 02: 설정 페이지의 사운드 메뉴는 기존 사운드 버튼을 그대로 조작합니다.
+const settingsSoundToggle = document.getElementById("settings-sound-toggle");
+const settingsBgmToggle = document.getElementById("settings-bgm-toggle");
+function syncSettingsAudio() {
+  settingsSoundToggle.textContent = soundEnabled ? "SFX : ON" : "SFX : OFF";
+  settingsBgmToggle.textContent = bgmEnabled ? "MUSIC : ON" : "MUSIC : OFF";
+  settingsSoundToggle.setAttribute("aria-pressed", String(soundEnabled));
+  settingsBgmToggle.setAttribute("aria-pressed", String(bgmEnabled));
+}
+settingsSoundToggle.addEventListener("click", () => { soundButton.click(); syncSettingsAudio(); });
+settingsBgmToggle.addEventListener("click", () => { bgmButton.click(); syncSettingsAudio(); });
+syncSettingsAudio();
+
+
+const GAME_VERSION = "v1.1.0"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
+document.getElementById("game-version").textContent = GAME_VERSION;
 
 const GAME_DURATION_MS = 30_000; // 30초
 const COMBO_WINDOW_MS = 4000; // 아이템을 먹은 뒤 4초 동안 콤보 유지
@@ -308,7 +334,7 @@ function renderMeta() {
   shopCoinsText.textContent = meta.coins.toLocaleString("ko-KR");
   shopShieldsText.textContent = meta.shields;
   buyShieldButton.disabled = meta.coins < SHIELD_PRICE || meta.shields >= MAX_SHIELDS;
-  buyShieldButton.textContent = meta.shields >= MAX_SHIELDS ? "보유 한도 3개" : meta.coins < SHIELD_PRICE ? "코인 부족" : "보호막 구매";
+  buyShieldButton.textContent = meta.shields >= MAX_SHIELDS ? "SHIELD LIMIT 3" : meta.coins < SHIELD_PRICE ? "COINS REQUIRED" : "BUY SHIELD";
 }
 // STEP 6-3: achievement / personal records overlays. All data shares the existing save key.
 const achievementsOverlay = document.getElementById("achievements-overlay");
@@ -317,7 +343,7 @@ let lastMetaTrigger = null;
 function renderAchievements() {
   const summary = document.getElementById("record-summary");
   summary.replaceChildren();
-  for (const [title, value] of [["최고 점수", `${meta.bestScore}점`], ["무보조 최고 점수", `${meta.bestWithoutShield}점`], ["최고 콤보", `${meta.bestCombo}연속`], ["누적 플레이", `${meta.totalRuns}판`]]) {
+  for (const [title, value] of [["HIGH SCORE", `${meta.bestScore} PTS`], ["NO-SHIELD BEST", `${meta.bestWithoutShield} PTS`], ["MAX COMBO", `${meta.bestCombo} HIT`], ["TOTAL RUNS", `${meta.totalRuns}`]]) {
     const el = document.createElement("div"); el.className="record-cell";
     const label = document.createElement("span"); label.textContent=title;
     const strong = document.createElement("strong"); strong.textContent=value;
@@ -327,12 +353,12 @@ function renderAchievements() {
   for (const entry of ACHIEVEMENTS) {
     const unlocked = meta.achievements?.[entry.id] === true;
     const el = document.createElement("div"); el.className = `achievement-row ${unlocked ? "unlocked" : "locked"}`;
-    const symbol = document.createElement("span"); symbol.className="achievement-symbol"; symbol.textContent=unlocked?"🏅":"🔒";
+    const symbol = document.createElement("span"); symbol.className="achievement-symbol"; symbol.textContent=unlocked?"■":"□";
     const body = document.createElement("div");
     const name = document.createElement("strong"); name.textContent=entry.name;
     const desc=document.createElement("small"); desc.textContent=entry.description;
     body.append(name,desc);
-    const state=document.createElement("span"); state.className="achievement-state"; state.textContent=unlocked?"달성":"미달성";
+    const state=document.createElement("span"); state.className="achievement-state"; state.textContent=unlocked?"CLEAR":"LOCKED";
     el.append(symbol,body,state); list.append(el);
   }
 }
@@ -340,7 +366,7 @@ function openMetaOverlay(which, trigger) {
   if (running || !shopOverlay.hidden) return;
   lastMetaTrigger=trigger;
   if (which === "achievements") { renderAchievements(); achievementsOverlay.hidden=false; document.getElementById("achievements-close").focus(); }
-  else { settingsOverlay.hidden=false; document.getElementById("settings-close").focus(); }
+  else { syncSettingsAudio(); settingsOverlay.hidden=false; document.getElementById("settings-close").focus(); }
 }
 function closeMetaOverlays() {
   achievementsOverlay.hidden=true;
@@ -447,11 +473,11 @@ function drawPickupEffects(now) {
     const t = Math.min(1, (now - effect.createdAt) / PICKUP_EFFECT_DURATION_MS);
     const alpha = t < 0.65 ? 1 : Math.max(0, (1 - t) / 0.35);
     const y = effect.y - t * 42;
-    const color = effect.streak >= 3 ? "#fb7185" : effect.streak === 2 ? "#fb923c" : "#fde047";
+    const color = "#F5CF37";
     ctx.globalAlpha = alpha;
     ctx.font = `bold ${effect.streak >= 3 ? 30 : 25}px "Apple SD Gothic Neo", sans-serif`;
     ctx.lineWidth = 4;
-    ctx.strokeStyle = "#0f172a";
+    ctx.strokeStyle = "#0B0B10";
     ctx.strokeText(`+${effect.points}`, effect.x, y);
     ctx.fillStyle = color;
     ctx.fillText(`+${effect.points}`, effect.x, y);
@@ -488,12 +514,12 @@ function updateWarLockDisplay(now = performance.now()) {
   const element = document.getElementById("war-lock-status");
   const remaining = remainingWarLockMs(now);
   const message = gameMode !== "war"
-    ? "SPACE · 전쟁 모드 진입"
+    ? "SPACE : WAR"
     : remaining > 0
-      ? `🔒 마지막 획득 후 생존 ${(remaining / 1000).toFixed(1)}초`
+      ? `LOCK ${(remaining / 1000).toFixed(1)}s`
       : lastWarPickupAt === null
-        ? "✓ 아이템 획득 전 · 언제든 복귀 가능"
-        : "✓ 생존 성공 · SPACE로 보너스 확정";
+        ? "SPACE : SAFE"
+        : "SPACE : BANK";
   if (message !== lastWarLockDisplay) {
     element.textContent = message;
     element.classList.toggle("locked", remaining > 0);
@@ -523,14 +549,14 @@ let warPickupCount = 0;
 
 function renderGameMode() {
   const isWar = gameMode === "war";
-  modeText.textContent = isWar ? "⚔ 전쟁 모드" : "🛡 안전 모드";
+  modeText.textContent = isWar ? "WAR MODE" : "SAFE MODE";
   bonusStatus.textContent = isWar
-    ? `추가 보상 +50% · 미확정 ${pendingWarBonus}점`
-    : `확정 전쟁 보너스 ${securedWarBonus}점 · SPACE 전환`;
+    ? `PENDING +${pendingWarBonus}  /  BONUS 50%`
+    : `SECURED +${securedWarBonus}`;
   const speedBonusPercent = Math.round(currentWarSpeedBonus() * 100);
   dangerStatus.textContent = isWar
-    ? `위험도 ${Math.min(warStreakPickups, WAR_SPEED_MAX_ITEMS)}/5 · 적 속도 +${speedBonusPercent}% (${obstacleSpeed.toFixed(1)}px/초)`
-    : `위험도 0/5 · 적 기본 속도 ${obstacleSpeed.toFixed(1)}px/초`;
+    ? `RISK ${Math.min(warStreakPickups, WAR_SPEED_MAX_ITEMS)}/5  /  SPEED +${speedBonusPercent}%`
+    : `RISK 0/5  /  CHASERS ${obstacleSpeed.toFixed(0)}px/s`;
   modeBoard.classList.toggle("war", isWar);
   modeBoard.classList.toggle("safe", !isWar);
   // 위험도 표시 바는 5단계의 비율만 표현하며, 게임 밸런스에는 관여하지 않습니다.
@@ -557,7 +583,7 @@ function toggleGameMode() {
     }
     const justSecured = pendingWarBonus;
     secureWarBonus();
-    showFeedback("SAFE MODE", justSecured ? `BONUS SECURED +${justSecured}` : "위험도 초기화", "safe", 1150, 2);
+    showFeedback("SAFE MODE", justSecured ? `BONUS SECURED +${justSecured}` : "위험도 초기화", "safe mode-change", 750, 2);
     gameMode = "safe";
     lastWarPickupAt = null;
     warStreakPickups = 0;
@@ -565,7 +591,7 @@ function toggleGameMode() {
     gameMode = "war";
     lastWarPickupAt = null;
     warStreakPickups = 0;
-    showFeedback("WAR MODE", "아이템 획득 시 2초 생존 · 보너스 +50%", "war", 1200, 2);
+    showFeedback("WAR MODE", "아이템 획득 시 2초 생존 · 보너스 +50%", "war mode-change", 800, 2);
   }
   updateObstacleSpeed();
   renderGameMode();
@@ -598,13 +624,13 @@ function resetCombo() {
 
 function renderCombo(now) {
   if (combo === 0 || lastPickupAt === null) {
-    if (lastComboDisplay !== "콤보 없음") { comboText.textContent = "콤보 없음"; lastComboDisplay = "콤보 없음"; }
+    if (lastComboDisplay !== "×0") { comboText.textContent = "×0"; lastComboDisplay = "×0"; }
     if (lastComboRemaining !== "") { comboTimeText.textContent = ""; lastComboRemaining = ""; }
     return;
   }
   const remaining = Math.max(0, COMBO_WINDOW_MS - (now - lastPickupAt));
-  const comboLabel = `콤보 x${Math.min(combo, MAX_COMBO_MULTIPLIER)} (${combo}연속)`;
-  const remainingLabel = `다음 획득까지 ${(remaining / 1000).toFixed(1)}초`;
+  const comboLabel = `×${Math.min(combo, MAX_COMBO_MULTIPLIER)}`;
+  const remainingLabel = `${combo} HIT  /  ${(remaining / 1000).toFixed(1)}s`;
   if (comboLabel !== lastComboDisplay) { comboText.textContent = comboLabel; lastComboDisplay = comboLabel; }
   if (remainingLabel !== lastComboRemaining) { comboTimeText.textContent = remainingLabel; lastComboRemaining = remainingLabel; }
 }
@@ -971,16 +997,24 @@ function roundedShape(x, y, width, height, radius) {
 }
 
 function drawArena() {
-  ctx.fillStyle = gameMode === "war" ? "#181b2b" : "#101d2e";
+  // V5.1: 인게임 격자도 메인 화면과 같은 계열의 조용한 픽셀 배경으로 통일.
+  // 게임 좌표/충돌 판정은 유지하고, 라인 대비만 낮춰 플레이 요소가 먼저 보이게 한다.
+  ctx.fillStyle = gameMode === "war" ? "#100D12" : "#0B0B10";
   ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-  ctx.strokeStyle = gameMode === "war" ? "#362739" : "#23354a";
+
+  const gridSize = 62;
+  const gridColor = gameMode === "war"
+    ? "rgba(240,82,82,0.055)"
+    : "rgba(166,175,185,0.075)";
+
+  ctx.strokeStyle = gridColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let x = 0.5; x < GAME_WIDTH; x += 48) {
+  for (let x = 0.5; x < GAME_WIDTH; x += gridSize) {
     ctx.moveTo(x, 0);
-    ctx.lineTo(x, GAME_HEIGHT);
+    ctx.lineTo(x, GAME_WIDTH > 0 ? GAME_HEIGHT : 0);
   }
-  for (let y = 0.5; y < GAME_HEIGHT; y += 48) {
+  for (let y = 0.5; y < GAME_HEIGHT; y += gridSize) {
     ctx.moveTo(0, y);
     ctx.lineTo(GAME_WIDTH, y);
   }
@@ -988,99 +1022,82 @@ function drawArena() {
 }
 
 function drawEnergyCrystal(now) {
-  const cx = item.x + item.size / 2;
-  const cy = item.y + item.size / 2;
-  const r = item.size / 2;
-  const pulse = 0.55 + 0.45 * Math.sin(now / 290);
-  // Decorative outlines may extend beyond the item hitbox; pickup range is unchanged.
-  ctx.strokeStyle = `rgba(250,204,21,${0.32 + pulse * 0.25})`;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r + 4 + pulse * 2, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - r);
-  ctx.lineTo(cx + r, cy);
-  ctx.lineTo(cx, cy + r);
-  ctx.lineTo(cx - r, cy);
-  ctx.closePath();
-  ctx.fillStyle = "#facc15";
-  ctx.fill();
-  ctx.strokeStyle = "#fff0a0";
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - r + 4);
-  ctx.lineTo(cx + r - 4, cy);
-  ctx.lineTo(cx, cy + r - 4);
-  ctx.lineTo(cx - r + 4, cy);
-  ctx.closePath();
-  ctx.fillStyle = "#fff0a0";
-  ctx.fill();
+  const cx = Math.round(item.x + item.size / 2);
+  const cy = Math.round(item.y + item.size / 2);
+  const pulse = 0.6 + 0.4 * Math.sin(now / 280);
+  // 마름모를 만드는 계단식 픽셀. 기존 아이템 22px 판정은 변경 없음.
+  ctx.save();
+  // 가장자리 직각 계단을 유지하는 20×20 픽셀 마름모.
+  ctx.fillStyle = "#705817";
+  ctx.fillRect(cx - 2 + 3, cy - 10 + 3, 4, 4);
+  ctx.fillRect(cx - 6 + 3, cy - 6 + 3, 12, 4);
+  ctx.fillRect(cx - 10 + 3, cy - 2 + 3, 20, 4);
+  ctx.fillRect(cx - 6 + 3, cy + 2 + 3, 12, 4);
+  ctx.fillRect(cx - 2 + 3, cy + 6 + 3, 4, 4);
+  ctx.fillStyle = "#F5CF37";
+  ctx.fillRect(cx - 2, cy - 10, 4, 4);
+  ctx.fillRect(cx - 6, cy - 6, 12, 4);
+  ctx.fillRect(cx - 10, cy - 2, 20, 4);
+  ctx.fillRect(cx - 6, cy + 2, 12, 4);
+  ctx.fillRect(cx - 2, cy + 6, 4, 4);
+  ctx.globalAlpha = pulse;
+  ctx.fillStyle = "#fff0aa";
+  ctx.fillRect(cx - 2, cy - 2, 4, 4);
+  ctx.restore();
 }
 
 function drawSentinel(obstacle, now) {
   const { x, y, size } = obstacle;
-  const inset = 3;
-  const danger = gameMode === "war" ? currentWarSpeedBonus() : 0;
-  const alertPulse = 0.30 + 0.20 * Math.sin(now / 180);
-  // The thin outer line communicates danger without changing its 48px collision box.
-  ctx.strokeStyle = `rgba(251,113,133,${alertPulse + danger})`;
+  const px = Math.round(x), py = Math.round(y);
+  const risk = gameMode === "war" ? currentWarSpeedBonus() : 0;
+  const dangerAlpha = 0.18 + risk * 0.7;
+  ctx.save();
+  ctx.fillStyle = "#6e242b";
+  ctx.fillRect(px + 4, py + 5, size - 4, size - 4);
+  ctx.fillStyle = "#F05252";
+  ctx.fillRect(px + 2, py + 2, size - 4, size - 4);
+  ctx.strokeStyle = "#ffb6b6";
   ctx.lineWidth = 2;
-  roundedShape(x + 1, y + 1, size - 2, size - 2, 7);
-  ctx.stroke();
-  roundedShape(x + inset, y + inset, size - inset * 2, size - inset * 2, 6);
-  ctx.fillStyle = "#b91c1c";
-  ctx.fill();
-  ctx.strokeStyle = "#fda4af";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  const center = size / 2;
-  ctx.strokeStyle = "#ffe1e5";
-  ctx.lineWidth = 3.5;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(x + center - 9, y + center - 9);
-  ctx.lineTo(x + center + 9, y + center + 9);
-  ctx.moveTo(x + center + 9, y + center - 9);
-  ctx.lineTo(x + center - 9, y + center + 9);
-  ctx.stroke();
+  ctx.strokeRect(px + 2, py + 2, size - 4, size - 4);
+  ctx.strokeStyle = "#fff1ef";
+  ctx.lineWidth = 4;
   ctx.lineCap = "butt";
+  ctx.beginPath();
+  ctx.moveTo(px + 15, py + 15); ctx.lineTo(px + size - 15, py + size - 15);
+  ctx.moveTo(px + size - 15, py + 15); ctx.lineTo(px + 15, py + size - 15);
+  ctx.stroke();
+  if (risk > 0) {
+    ctx.strokeStyle = `rgba(240,82,82,${dangerAlpha})`;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px - 3, py - 3, size + 6, size + 6);
+  }
+  ctx.restore();
 }
 
 function drawEnergyCore(now) {
   const { x, y, size } = player;
-  const invulnerableRemaining = shieldInvulnerableUntil - now;
-  const invulnerable = invulnerableRemaining > 0;
-  // STEP 6-4.2: 인지 가능한 무적 상태를 유지하되 화면 깜빡임은 제거합니다.
-  // 마지막 0.3초에는 보호막 외곽 링만 서서히 투명해집니다.
-  const shieldFade = invulnerable ? Math.min(1, invulnerableRemaining / 300) : 0;
+  const px = Math.round(x), py = Math.round(y);
+  const remaining = shieldInvulnerableUntil - now;
+  const invulnerable = remaining > 0;
+  const shieldFade = invulnerable ? Math.min(1, remaining / 300) : 0;
   const hasShield = gameMode === "war" && shieldAvailableThisRun && !shieldUsedThisRun && running;
-  roundedShape(x + 2, y + 2, size - 4, size - 4, 8);
-  ctx.fillStyle = invulnerable ? "#38bdf8" : "#2563eb";
-  ctx.fill();
-  ctx.strokeStyle = invulnerable ? "#e0f2fe" : "#93c5fd";
+  ctx.save();
+  ctx.fillStyle = "#203c88";
+  ctx.fillRect(px + 5, py + 6, size - 6, size - 6);
+  ctx.fillStyle = invulnerable ? "#77c5ff" : "#3976FF";
+  ctx.fillRect(px + 2, py + 2, size - 4, size - 4);
+  ctx.strokeStyle = invulnerable ? "#f3efe4" : "#a4bcff";
   ctx.lineWidth = 2;
-  ctx.stroke();
-  roundedShape(x + 12, y + 12, size - 24, size - 24, 4);
-  ctx.fillStyle = invulnerable ? "#f0f9ff" : "#93c5fd";
-  ctx.fill();
-  ctx.strokeStyle = invulnerable ? "#0284c7" : "#dbeafe";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  const cx = x + size / 2, cy = y + size / 2;
-  ctx.moveTo(cx - 5, cy); ctx.lineTo(cx + 5, cy);
-  ctx.moveTo(cx, cy - 5); ctx.lineTo(cx, cy + 5);
-  ctx.stroke();
+  ctx.strokeRect(px + 2, py + 2, size - 4, size - 4);
+  ctx.fillStyle = invulnerable ? "#f3efe4" : "#a4bcff";
+  ctx.fillRect(px + 19, py + 19, 10, 10);
   if (invulnerable || hasShield) {
-    ctx.save();
     ctx.globalAlpha = invulnerable ? shieldFade : 0.75;
-    ctx.strokeStyle = "#67e8f9";
+    ctx.strokeStyle = "#9dd8ff";
     ctx.lineWidth = invulnerable ? 3 : 2;
-    roundedShape(x - 4, y - 4, size + 8, size + 8, 10);
-    ctx.stroke();
-    ctx.restore();
+    ctx.strokeRect(px - 5, py - 5, size + 10, size + 10);
   }
+  ctx.restore();
 }
 
 function draw(now = performance.now()) {
@@ -1116,7 +1133,7 @@ function renderTestSummary() {
     const average = (key) => total === 0 ? "-" : (records.reduce((sum, r) => sum + r[key], 0) / total).toFixed(1);
     const completionRate = total === 0 ? "-" : `${(records.filter(r => r.reason === "time").length / total * 100).toFixed(1)}%`;
     const tr = document.createElement("tr");
-    for (const value of [DIFFICULTY_NAMES[difficulty], total, average("score"), total ? `${average("survival")}초` : "-", completionRate, total ? `${average("maxCombo")}연속` : "-"]) {
+    for (const value of [difficulty.toUpperCase(), total, average("score"), total ? `${average("survival")}s` : "-", completionRate, total ? `${average("maxCombo")} HIT` : "-"]) {
       const td = document.createElement("td");
       td.textContent = value;
       tr.appendChild(td);
@@ -1167,17 +1184,18 @@ function finishGame(reason = "time") {
   const unlocked = unlockAchievements(reason);
   const recordAnnouncement = document.getElementById("record-announcement");
   const announcements = [];
-  if (score > previousBest) announcements.push(`🏆 NEW RECORD! ${score}점`);
-  if (unlocked.length) announcements.push(`🎖 신규 도전 과제: ${unlocked.join(", ")}`);
+  // NEW RECORD는 점수 바로 아래에서 한 번만 표시합니다.
+  // 알림 영역에는 중복 문구 없이 도전 과제만 표시합니다.
+  if (unlocked.length) announcements.push(`ACHIEVEMENT: ${unlocked.join(", ")}`);
   recordAnnouncement.hidden = announcements.length === 0;
   recordAnnouncement.textContent = announcements.join(" · ");
   saveMeta();
   renderMeta();
   economyResult.textContent = `기본 점수 ${earnedCoinsThisRun}점 → +${earnedCoinsThisRun.toLocaleString("ko-KR")} 코인 · 전쟁 보너스는 코인 제외 · 보유 ${meta.coins.toLocaleString("ko-KR")} 코인 · 최고 기록 ${meta.bestScore}점`;
-  shieldResult.textContent = shieldUsedThisRun ? "🛡 전쟁 보호막 1개 사용 · 미확정 전쟁 보너스 유지" : "🛡 보호막 사용 없음 · 무보조 최고 기록 " + meta.bestWithoutShield + "점";
+  shieldResult.textContent = shieldUsedThisRun ? "SHIELD USED · 미확정 전쟁 보너스 유지" : "SHIELD NOT USED · 무보조 최고 기록 " + meta.bestWithoutShield + "점";
   playEndSound(reason);
   const survivedSeconds = Math.min(30, Math.max(0, (performance.now() - gameStartsAt) / 1000));
-  endStats.textContent = `난이도: ${DIFFICULTY_NAMES[selectedDifficulty]} · 생존 시간: ${survivedSeconds.toFixed(1)}초`;
+  endStats.textContent = `${selectedDifficulty.toUpperCase()} / ${survivedSeconds.toFixed(1)}s`;
   testRecords.push({ difficulty: selectedDifficulty, score, survival: survivedSeconds, reason, maxCombo, securedBonus: securedWarBonus, lostBonus: lostWarBonus, warPickups: warPickupCount, safeFps: averageFps("safe"), warFps: averageFps("war"), safeJank: perfByMode.safe.longFrames, warJank: perfByMode.war.longFrames, baseScore: score - securedWarBonus, earnedCoins: earnedCoinsThisRun, shieldUsed: shieldUsedThisRun, walletCoins: meta.coins, bestScore: meta.bestScore });
   const performanceResult = document.getElementById("performance-result");
   performanceResult.hidden = !debugMode;
@@ -1204,11 +1222,21 @@ function finishGame(reason = "time") {
   timerBoard.hidden = true;
   obstacleBoard.hidden = true;
   finalScoreText.textContent = score;
-  finalComboText.textContent = `${maxCombo}연속`;
+  // 이전 최고 점수를 기준으로 표시만 계산하며 저장값이나 보상은 변경하지 않습니다.
+  const resultBestText = document.getElementById("result-best-comparison");
+  resultBestText.textContent = score > previousBest
+    ? "NEW RECORD"
+    : `BEST ${previousBest.toLocaleString("ko-KR")} (${score - previousBest})`;
+  resultBestText.classList.toggle("new-record", score > previousBest);
+  finalComboText.textContent = `${maxCombo} HIT`;
+  // REDESIGN 06: 별도 표시 필드는 기존 점수/재화 계산값을 그대로 사용.
+  document.getElementById("result-war-bonus").textContent = `+${securedWarBonus.toLocaleString("ko-KR")}`;
+  document.getElementById("result-coin-earned").textContent = `+${earnedCoinsThisRun.toLocaleString("ko-KR")}`;
   comboBoard.hidden = true;
   modeBoard.hidden = true;
   perfPanel.hidden = true;
-  document.getElementById("end-title").textContent = reason === "obstacle" ? "게임 오버!" : "시간 종료!";
+  endScreen.dataset.result = reason === "obstacle" ? "over" : "clear";
+  document.getElementById("end-title").textContent = reason === "obstacle" ? "GAME OVER" : "RUN CLEAR";
   document.getElementById("end-reason").textContent = reason === "obstacle"
     ? "빨간 장애물에 닿았어요."
     : "30초가 지났어요.";
@@ -1303,28 +1331,71 @@ function beginGame() {
   animationId = requestAnimationFrame(loop);
 }
 
-// STEP 6-5.4.1: 사이트 진입 시 3색 인트로를 보여준 뒤 메인 화면을 엽니다.
+// REDESIGN 03: 메인 픽셀 UI와 동일한 어휘의 첫 진입 3색 시퀀스.
+// 게임 플레이 타이머, BGM, localStorage에는 영향을 주지 않습니다.
 const colorIntro = document.getElementById("color-intro");
 const introSymbol = document.getElementById("intro-symbol");
 const introWord = document.getElementById("intro-word");
 const introSub = document.getElementById("intro-sub");
 const introSkipButton = document.getElementById("intro-skip");
+const introFrame = document.getElementById("intro-pixel-frame");
+const introStepCounter = document.getElementById("intro-step-counter");
+const introColorLabel = document.getElementById("intro-color-label");
+const introProgress = [...document.querySelectorAll("#intro-progress i")];
+const introLettering = document.getElementById("intro-lettering");
 const introScenes = [
-  { key:"blue", label:"YOU", sub:"THE PLAYER", ms:620 },
-  { key:"yellow", label:"COLLECT", sub:"THE REWARD", ms:620 },
-  { key:"red", label:"SURVIVE", sub:"THE DANGER", ms:620 },
-  { key:"logo", label:"BLUE COLLECTOR", sub:"COLLECT MORE. RISK MORE.", ms:850 }
+  { key:"blue", label:"YOU", sub:"BLUE / PLAYER", footer:"BLUE / 01", ms:650 },
+  { key:"yellow", label:"COLLECT", sub:"YELLOW / REWARD", footer:"YELLOW / 02", ms:650 },
+  { key:"red", label:"SURVIVE", sub:"RED / DANGER", footer:"RED / 03", ms:650 },
+  { key:"logo", label:"BLUE COLLECTOR", sub:"COLLECT MORE. RISK MORE.", footer:"READY / 04", ms:1050 }
 ];
 let introTimeout = null;
 let introIsPlaying = false;
+
+function drawIntroLettering(scene) {
+  const ctx = introLettering.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, introLettering.width, introLettering.height);
+  ctx.imageSmoothingEnabled = false;
+  // 타이틀은 메인 화면의 도트 로고 캔버스를 그대로 공유해 그래픽 일관성을 확보.
+  if (scene.key === "logo") {
+    // Keep the full raster logo inside the intro canvas, no edge clipping.
+    ctx.drawImage(pixelTitleCanvas, 0, 0, 476, 190, 82, 8, 476, 190);
+    return;
+  }
+  const scale = scene.label.length >= 7 ? 12 : 15;
+  const letterWidth = 6 * scale;
+  const offsetX = Math.floor((640 - scene.label.length * letterWidth + scale) / 2);
+  const offsetY = 64;
+  const shadow = scene.key === "blue" ? "#273C7D" : scene.key === "yellow" ? "#8D671B" : "#832A39";
+  const face = scene.key === "blue" ? "#88B4FF" : scene.key === "yellow" ? "#F5CF37" : "#F07575";
+  for (let i = 0; i < scene.label.length; i++) {
+    const glyph = PIXEL_GLYPHS[scene.label[i]];
+    if (!glyph) continue;
+    for (let y = 0; y < 7; y++) for (let x = 0; x < 5; x++) {
+      if (glyph[y][x] !== "1") continue;
+      const px = offsetX + (i * 6 + x) * scale;
+      const py = offsetY + y * scale;
+      ctx.fillStyle = shadow;
+      ctx.fillRect(px + 5, py + 6, scale + 2, scale + 2);
+      ctx.fillStyle = face;
+      ctx.fillRect(px - 1, py - 1, scale + 2, scale + 2);
+    }
+  }
+}
 function showIntroScene(index) {
   if (!introIsPlaying) return;
   if (index >= introScenes.length) { completeIntro(); return; }
   const scene = introScenes[index];
+  introFrame.className = "intro-pixel-frame " + scene.key;
   introSymbol.className = "intro-symbol " + scene.key;
-  introWord.className = "intro-word " + scene.key;
-  introWord.textContent = scene.label;
+  introWord.textContent = scene.label; // 캔버스 타이틀의 접근성 텍스트
   introSub.textContent = scene.sub;
+  introColorLabel.textContent = scene.footer;
+  introStepCounter.textContent = String(index + 1).padStart(2, "0") + " / 04";
+  introProgress.forEach((element, i) => element.classList.toggle("active", i <= index));
+  drawIntroLettering(scene);
+  // 모든 색을 화면 전체에 번쩍이지 않고 도형과 프레임만 단계적으로 교체.
   introTimeout = window.setTimeout(() => showIntroScene(index + 1), scene.ms);
 }
 function completeIntro() {
@@ -1333,29 +1404,39 @@ function completeIntro() {
   introTimeout = null;
   introIsPlaying = false;
   colorIntro.hidden = true;
-  if (!helpSeen) openHelp();
-  else startButton.focus();
+  startButton.focus();
 }
 function playLandingIntro() {
   const reduceMotion = window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (reduceMotion) {
     colorIntro.hidden = true;
-    if (!helpSeen) openHelp();
+    startButton.focus();
     return;
   }
   introIsPlaying = true;
   colorIntro.hidden = false;
   showIntroScene(0);
-  introSkipButton.focus();
+  // Avoid auto-scrolling the scaled mobile opening frame when focusing SKIP.
+  introSkipButton.focus({ preventScroll: true });
 }
 function startGame() {
   if (introIsPlaying || !helpOverlay.hidden) return;
+  if (!helpSeen) {
+    startAfterHelp = true;
+    openHelp(startButton);
+    return;
+  }
   beginGame();
 }
 introSkipButton.addEventListener("click", completeIntro);
+window.addEventListener("keydown", event => {
+  if (introIsPlaying && ["Space", "Enter", "Escape"].includes(event.code)) {
+    event.preventDefault();
+    completeIntro();
+  }
+});
 function restartGame() { startGame(); }
-
 
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space" && running) {
@@ -1385,31 +1466,42 @@ const helpOpenButton = document.getElementById("help-start-button");
 const helpCloseButton = document.getElementById("help-close-button");
 const helpDoneButton = document.getElementById("help-done-button");
 let previousHelpFocus = null;
+let startAfterHelp = false;
 function openHelp(trigger = null) {
   if (running || !shopOverlay.hidden || !achievementsOverlay.hidden || !settingsOverlay.hidden) return;
   previousHelpFocus = trigger || document.activeElement;
   helpOverlay.hidden = false;
-  helpDoneButton.focus();
+  // HOW TO PLAY를 메뉴에서 직접 연 경우 BACK은 상단에 하나만 표시한다.
+  // 첫 START 클릭으로 들어왔다면 기존 게임 시작 흐름을 위해 하단 START GAME만 표시한다.
+  helpDoneButton.hidden = !startAfterHelp;
+  helpDoneButton.textContent = "START GAME →";
+  (startAfterHelp ? helpDoneButton : helpCloseButton).focus();
 }
 function closeHelp() {
   if (helpOverlay.hidden) return;
   helpOverlay.hidden = true;
   try { localStorage.setItem(HELP_SEEN_KEY, "1"); } catch (_) { /* 스토리지 제한에서도 정상 동작 */ }
+  helpSeen = true;
+  startAfterHelp = false;
   if (previousHelpFocus && document.contains(previousHelpFocus)) previousHelpFocus.focus();
   else startButton.focus();
 }
 helpOpenButton.addEventListener("click", () => openHelp(helpOpenButton));
 helpCloseButton.addEventListener("click", closeHelp);
-helpDoneButton.addEventListener("click", closeHelp);
+helpDoneButton.addEventListener("click", () => {
+  const shouldStart = startAfterHelp;
+  closeHelp();
+  if (shouldStart) beginGame();
+});
 window.addEventListener("keydown", event => {
   if (helpOverlay.hidden) return;
   if (event.key === "Escape") { event.preventDefault(); closeHelp(); }
   // 게임 키 입력 및 뒤쪽 버튼으로 포커스가 이동하지 않도록 팝업 내부에 묶습니다.
   if (event.key === "Tab") {
-    const focusables = [helpCloseButton, helpDoneButton];
+    const focusables = startAfterHelp ? [helpCloseButton, helpDoneButton] : [helpCloseButton];
     const index = focusables.indexOf(document.activeElement);
-    if (event.shiftKey && (index === 0 || index === -1)) { event.preventDefault(); helpDoneButton.focus(); }
-    else if (!event.shiftKey && index === focusables.length - 1) { event.preventDefault(); helpCloseButton.focus(); }
+    if (event.shiftKey && (index === 0 || index === -1)) { event.preventDefault(); focusables[focusables.length - 1].focus(); }
+    else if (!event.shiftKey && index === focusables.length - 1) { event.preventDefault(); focusables[0].focus(); }
   }
 });
 let helpSeen = false;
@@ -1431,7 +1523,115 @@ changeDifficultyButton.addEventListener("click", () => {
   modeBoard.hidden = true;
   perfPanel.hidden = true;
   document.getElementById("game").classList.remove("war-mode");
+  startMenuDemo();
 });
+
+
+// REDESIGN 02: 외부 폰트 파일 없이 5x7 도트 글리프로 원본 타이틀 디자인을 그립니다.
+const pixelTitleCanvas = document.getElementById("pixel-title-canvas");
+const PIXEL_GLYPHS = {
+  B:["11110","10001","10001","11110","10001","10001","11110"],
+  L:["10000","10000","10000","10000","10000","10000","11111"],
+  U:["10001","10001","10001","10001","10001","10001","01110"],
+  E:["11111","10000","10000","11110","10000","10000","11111"],
+  C:["01111","10000","10000","10000","10000","10000","01111"],
+  O:["01110","10001","10001","10001","10001","10001","01110"],
+  T:["11111","00100","00100","00100","00100","00100","00100"],
+  R:["11110","10001","10001","11110","10100","10010","10001"],
+  Y:["10001","10001","01010","00100","00100","00100","00100"],
+  S:["01111","10000","10000","01110","00001","00001","11110"],
+  V:["10001","10001","10001","10001","10001","01010","00100"],
+  I:["11111","00100","00100","00100","00100","00100","11111"]
+};
+function drawPixelTitle() {
+  if (!pixelTitleCanvas) return;
+  const ctx = pixelTitleCanvas.getContext("2d");
+  const width = 476, height = 190;
+  pixelTitleCanvas.width=width; pixelTitleCanvas.height=height;
+  ctx.clearRect(0,0,width,height);
+  function word(text, originX, originY, scale) {
+    for (let n=0;n<text.length;n++) {
+      const glyph=PIXEL_GLYPHS[text[n]];
+      if (!glyph) continue;
+      for (let y=0;y<7;y++) for(let x=0;x<5;x++) if(glyph[y][x]==="1") {
+        const px=originX+(n*6+x)*scale, py=originY+y*scale;
+        // 1픽셀씩 어긋나는 투톤 그림자는 현대식 글로우가 아닌 레트로 스프라이트 효과.
+        // BLUE is the title identity: one blue face, a restrained dark-blue pixel shadow.
+        // Preserve the heavier 5x7 pixels chosen during redesign V4.
+        ctx.fillStyle="#203C88";ctx.fillRect(px+5,py+6,scale+2,scale+2);
+        ctx.fillStyle="#5E91FF";ctx.fillRect(px-1,py-1,scale+2,scale+2);
+      }
+    }
+  }
+  word("BLUE",8,6,13);
+  word("COLLECTOR",8,124,7);
+}
+drawPixelTitle();
+
+// REDESIGN 01: 타이틀 화면 전용 자동 시연. 실제 게임의 난이도·점수·저장 데이터에 영향 없음.
+const menuDemoCanvas = document.getElementById("menu-demo-canvas");
+const menuDemoContext = menuDemoCanvas.getContext("2d");
+let menuDemoAnimationId = null;
+const menuRoute = [
+  [.15,.70],[.16,.38],[.29,.20],[.55,.16],[.79,.31],[.83,.70],[.65,.82],[.40,.80]
+];
+function menuPositionAt(phase) {
+  const n = menuRoute.length;
+  const wrap = ((phase % n) + n) % n;
+  const index = Math.floor(wrap);
+  const fraction = wrap-index;
+  const a = menuRoute[index], b = menuRoute[(index+1)%n];
+  const smooth = fraction*fraction*(3-2*fraction);
+  return [a[0]+(b[0]-a[0])*smooth,a[1]+(b[1]-a[1])*smooth];
+}
+function drawMenuDemo(now) {
+  const canvas = menuDemoCanvas;
+  const ctx = menuDemoContext;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h || !ctx) return;
+  const dpr = Math.min(1.5, window.devicePixelRatio || 1);
+  const sw=Math.max(1,Math.round(w*dpr)),sh=Math.max(1,Math.round(h*dpr));
+  if(canvas.width!==sw || canvas.height!==sh) {canvas.width=sw;canvas.height=sh;}
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle="#101318";ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle="rgba(166,175,185,.075)";ctx.lineWidth=1;
+  const grid=62;
+  for(let x=0;x<w;x+=grid){ctx.beginPath();ctx.moveTo(x+.5,0);ctx.lineTo(x+.5,h);ctx.stroke();}
+  for(let y=0;y<h;y+=grid){ctx.beginPath();ctx.moveTo(0,y+.5);ctx.lineTo(w,y+.5);ctx.stroke();}
+  // 이동 경로의 흔적. 플레이어와 적 모두 타이틀 중앙을 가리지 않도록 낮은 대비를 사용.
+  const period = now/1530;
+  const size=Math.max(18,Math.min(37,Math.min(w,h)*.061));
+  function square(x,y,size,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x-size/2),Math.round(y-size/2),size,size);}
+  function diamond(x,y,size){ctx.fillStyle="#F5CF37";const a=Math.max(4,Math.round(size/4));ctx.fillRect(Math.round(x-a),Math.round(y-a),2*a,2*a);ctx.fillRect(Math.round(x-a/2),Math.round(y-1.5*a),a,3*a);ctx.fillRect(Math.round(x-1.5*a),Math.round(y-a/2),3*a,a);}
+  // 아이템은 등장 위치를 고정해 수집 게임의 목적을 즉시 전달한다.
+  [[.29,.20],[.83,.70],[.40,.80]].forEach(([x,y],i)=>{
+    const pulse=0.96+0.08*Math.sin(now/380+i*2);
+    diamond(x*w,y*h,Math.round(size*.52*pulse));
+  });
+  const hero=menuPositionAt(period), red1=menuPositionAt(period-1.00), red2=menuPositionAt(period-1.94);
+  square(red2[0]*w,red2[1]*h,size*.78,"#F05252");
+  square(red1[0]*w,red1[1]*h,size*.83,"#F05252");
+  square(hero[0]*w,hero[1]*h,size,"#3976FF");
+  // 얇은 플레이어 외곽선은 네온이 아닌 형태 차별화 역할만 한다.
+  ctx.strokeStyle="#C4D8FF";ctx.lineWidth=1;
+  ctx.strokeRect(Math.round(hero[0]*w-size/2)-.5,Math.round(hero[1]*h-size/2)-.5,size+1,size+1);
+  // 타이틀과 메뉴에 시선이 가도록 좌표 표기는 생략합니다.
+}
+function animateMenuDemo(now) {
+  if (startScreen.hidden || document.hidden) {menuDemoAnimationId=null;return;}
+  if (!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+    drawMenuDemo(now);
+    menuDemoAnimationId=requestAnimationFrame(animateMenuDemo);
+  } else {
+    drawMenuDemo(0);
+    menuDemoAnimationId=null;
+  }
+}
+function startMenuDemo() {
+  if (menuDemoAnimationId !== null || startScreen.hidden || document.hidden) return;
+  menuDemoAnimationId=requestAnimationFrame(animateMenuDemo);
+}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)startMenuDemo();});
 
 // 다른 창으로 전환했을 때 키가 눌린 채로 남지 않도록 처리
 window.addEventListener("blur", () => {
@@ -1448,3 +1648,4 @@ placePlayerInCenter();
 resetItem();
 draw();
 playLandingIntro();
+startMenuDemo();

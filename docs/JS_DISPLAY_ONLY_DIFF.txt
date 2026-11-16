@@ -1,0 +1,98 @@
+--- V6.1/game.js
+
++++ V7/game.js
+
+@@ -74,5 +74,5 @@
+
+ let lastPerfDisplay = "";
+ function updateEffectButton() {
+-  effectButton.textContent = effectsEnabled ? "✨ 연출 ON" : "연출 OFF";
++  effectButton.textContent = effectsEnabled ? "EFFECTS ON" : "EFFECTS OFF";
+   effectButton.setAttribute("aria-pressed", String(effectsEnabled));
+   gameStage.classList.toggle("low-effects", !effectsEnabled);
+@@ -252,4 +252,7 @@
+
+ syncSettingsAudio();
+ 
++
++const GAME_VERSION = "v1.0.0"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
++document.getElementById("game-version").textContent = GAME_VERSION;
+ 
+ const GAME_DURATION_MS = 30_000; // 30초
+@@ -332,5 +335,5 @@
+
+   shopShieldsText.textContent = meta.shields;
+   buyShieldButton.disabled = meta.coins < SHIELD_PRICE || meta.shields >= MAX_SHIELDS;
+-  buyShieldButton.textContent = meta.shields >= MAX_SHIELDS ? "보유 한도 3개" : meta.coins < SHIELD_PRICE ? "코인 부족" : "보호막 구매";
++  buyShieldButton.textContent = meta.shields >= MAX_SHIELDS ? "SHIELD LIMIT 3" : meta.coins < SHIELD_PRICE ? "COINS REQUIRED" : "BUY SHIELD";
+ }
+ // STEP 6-3: achievement / personal records overlays. All data shares the existing save key.
+@@ -341,5 +344,5 @@
+
+   const summary = document.getElementById("record-summary");
+   summary.replaceChildren();
+-  for (const [title, value] of [["최고 점수", `${meta.bestScore}점`], ["무보조 최고 점수", `${meta.bestWithoutShield}점`], ["최고 콤보", `${meta.bestCombo}연속`], ["누적 플레이", `${meta.totalRuns}판`]]) {
++  for (const [title, value] of [["HIGH SCORE", `${meta.bestScore} PTS`], ["NO-SHIELD BEST", `${meta.bestWithoutShield} PTS`], ["MAX COMBO", `${meta.bestCombo} HIT`], ["TOTAL RUNS", `${meta.totalRuns}`]]) {
+     const el = document.createElement("div"); el.className="record-cell";
+     const label = document.createElement("span"); label.textContent=title;
+@@ -356,5 +359,5 @@
+
+     const desc=document.createElement("small"); desc.textContent=entry.description;
+     body.append(name,desc);
+-    const state=document.createElement("span"); state.className="achievement-state"; state.textContent=unlocked?"달성":"미달성";
++    const state=document.createElement("span"); state.className="achievement-state"; state.textContent=unlocked?"CLEAR":"LOCKED";
+     el.append(symbol,body,state); list.append(el);
+   }
+@@ -550,5 +553,5 @@
+
+   bonusStatus.textContent = isWar
+     ? `PENDING +${pendingWarBonus}  /  BONUS 50%`
+-    : `SECURED +${securedWarBonus}  /  SPACE : WAR`;
++    : `SECURED +${securedWarBonus}`;
+   const speedBonusPercent = Math.round(currentWarSpeedBonus() * 100);
+   dangerStatus.textContent = isWar
+@@ -1131,5 +1134,5 @@
+
+     const completionRate = total === 0 ? "-" : `${(records.filter(r => r.reason === "time").length / total * 100).toFixed(1)}%`;
+     const tr = document.createElement("tr");
+-    for (const value of [DIFFICULTY_NAMES[difficulty], total, average("score"), total ? `${average("survival")}초` : "-", completionRate, total ? `${average("maxCombo")}연속` : "-"]) {
++    for (const value of [difficulty.toUpperCase(), total, average("score"), total ? `${average("survival")}s` : "-", completionRate, total ? `${average("maxCombo")} HIT` : "-"]) {
+       const td = document.createElement("td");
+       td.textContent = value;
+@@ -1182,6 +1185,7 @@
+
+   const recordAnnouncement = document.getElementById("record-announcement");
+   const announcements = [];
+-  if (score > previousBest) announcements.push(`🏆 NEW RECORD! ${score}점`);
+-  if (unlocked.length) announcements.push(`🎖 신규 도전 과제: ${unlocked.join(", ")}`);
++  // NEW RECORD는 점수 바로 아래에서 한 번만 표시합니다.
++  // 알림 영역에는 중복 문구 없이 도전 과제만 표시합니다.
++  if (unlocked.length) announcements.push(`ACHIEVEMENT: ${unlocked.join(", ")}`);
+   recordAnnouncement.hidden = announcements.length === 0;
+   recordAnnouncement.textContent = announcements.join(" · ");
+@@ -1189,8 +1193,8 @@
+
+   renderMeta();
+   economyResult.textContent = `기본 점수 ${earnedCoinsThisRun}점 → +${earnedCoinsThisRun.toLocaleString("ko-KR")} 코인 · 전쟁 보너스는 코인 제외 · 보유 ${meta.coins.toLocaleString("ko-KR")} 코인 · 최고 기록 ${meta.bestScore}점`;
+-  shieldResult.textContent = shieldUsedThisRun ? "🛡 전쟁 보호막 1개 사용 · 미확정 전쟁 보너스 유지" : "🛡 보호막 사용 없음 · 무보조 최고 기록 " + meta.bestWithoutShield + "점";
++  shieldResult.textContent = shieldUsedThisRun ? "SHIELD USED · 미확정 전쟁 보너스 유지" : "SHIELD NOT USED · 무보조 최고 기록 " + meta.bestWithoutShield + "점";
+   playEndSound(reason);
+   const survivedSeconds = Math.min(30, Math.max(0, (performance.now() - gameStartsAt) / 1000));
+-  endStats.textContent = `난이도: ${DIFFICULTY_NAMES[selectedDifficulty]} · 생존 시간: ${survivedSeconds.toFixed(1)}초`;
++  endStats.textContent = `${selectedDifficulty.toUpperCase()} / ${survivedSeconds.toFixed(1)}s`;
+   testRecords.push({ difficulty: selectedDifficulty, score, survival: survivedSeconds, reason, maxCombo, securedBonus: securedWarBonus, lostBonus: lostWarBonus, warPickups: warPickupCount, safeFps: averageFps("safe"), warFps: averageFps("war"), safeJank: perfByMode.safe.longFrames, warJank: perfByMode.war.longFrames, baseScore: score - securedWarBonus, earnedCoins: earnedCoinsThisRun, shieldUsed: shieldUsedThisRun, walletCoins: meta.coins, bestScore: meta.bestScore });
+   const performanceResult = document.getElementById("performance-result");
+@@ -1219,5 +1223,11 @@
+
+   obstacleBoard.hidden = true;
+   finalScoreText.textContent = score;
+-  finalComboText.textContent = `${maxCombo}연속`;
++  // 이전 최고 점수를 기준으로 표시만 계산하며 저장값이나 보상은 변경하지 않습니다.
++  const resultBestText = document.getElementById("result-best-comparison");
++  resultBestText.textContent = score > previousBest
++    ? "NEW RECORD"
++    : `BEST ${previousBest.toLocaleString("ko-KR")} (${score - previousBest})`;
++  resultBestText.classList.toggle("new-record", score > previousBest);
++  finalComboText.textContent = `${maxCombo} HIT`;
+   // REDESIGN 06: 별도 표시 필드는 기존 점수/재화 계산값을 그대로 사용.
+   document.getElementById("result-war-bonus").textContent = `+${securedWarBonus.toLocaleString("ko-KR")}`;

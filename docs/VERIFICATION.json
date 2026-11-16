@@ -1,0 +1,42 @@
+{
+  "preserved_original_id_count": 99,
+  "added_ids": [
+    "game-version",
+    "result-best-comparison"
+  ],
+  "verified_rule_constants": {
+    "GAME_DURATION_MS": "const GAME_DURATION_MS = 30_000; // 30초",
+    "COMBO_WINDOW_MS": "const COMBO_WINDOW_MS = 4000; // 아이템을 먹은 뒤 4초 동안 콤보 유지",
+    "MAX_COMBO_MULTIPLIER": "const MAX_COMBO_MULTIPLIER = 3; // 점수 배수 상한",
+    "DIFFICULTY_SPEEDS": "const DIFFICULTY_SPEEDS = { easy: 55, normal: 85, hard: 115 };",
+    "OBSTACLE_ADD_INTERVAL_MS": "const OBSTACLE_ADD_INTERVAL_MS = 10_000; // 10초마다 적 1개 추가",
+    "MAX_OBSTACLES": "const MAX_OBSTACLES = 3; // 시작 1개 + 10초에 1개 + 20초에 1개",
+    "SHIELD_PRICE": "const SHIELD_PRICE = 1000;",
+    "MAX_SHIELDS": "const MAX_SHIELDS = 3;",
+    "SHIELD_INVULNERABILITY_MS": "const SHIELD_INVULNERABILITY_MS = 1000;",
+    "WAR_BONUS_RATE": "const WAR_BONUS_RATE = 0.5;",
+    "WAR_PICKUP_SURVIVAL_MS": "const WAR_PICKUP_SURVIVAL_MS = 2000;",
+    "WAR_SPEED_STEP": "const WAR_SPEED_STEP = 0.05;",
+    "WAR_SPEED_MAX_BONUS": "const WAR_SPEED_MAX_BONUS = 0.25;",
+    "PREFERRED_SPAWN_DISTANCE": "const PREFERRED_SPAWN_DISTANCE = 260;",
+    "ABSOLUTE_MIN_SPAWN_DISTANCE": "const ABSOLUTE_MIN_SPAWN_DISTANCE = 110;",
+    "ITEM_OBSTACLE_GAP": "const ITEM_OBSTACLE_GAP = 16;",
+    "META_STORAGE_KEY": "const META_STORAGE_KEY = \"blue-square-meta-v1\";"
+  },
+  "js_diff_lines": 65,
+  "unmodified_binary_sha256": true,
+  "final_verified_rule_constant_count": 17,
+  "original_dom_id_count": 99,
+  "added_dom_ids": [
+    "game-version",
+    "result-best-comparison"
+  ],
+  "csv_byte_identical": true,
+  "gameplay_subsections_compared": true,
+  "style_css_is_append_only": true,
+  "qa_960_and_1440": true,
+  "audio_binary_identical": true,
+  "source_is_v6_1_zip_verified": true,
+  "new_font_binary_included": false,
+  "no_github_upload": true
+}

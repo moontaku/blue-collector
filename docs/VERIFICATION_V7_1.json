@@ -1,0 +1,28 @@
+{
+  "release": "REDESIGN 07.1 — menu cleanup",
+  "source": "REDESIGN 07",
+  "changes": [
+    "remove empty BGM CREDIT row",
+    "display only upper BACK for manual HOW TO PLAY",
+    "retain START GAME CTA for first-start help",
+    "focus only visible help actions"
+  ],
+  "unchanged_sha256": {
+    "style.css": "8dd6e074145cf1574abcdba41079aceeea263302f7f7001bb498e066bf20c865",
+    "blue-collector-bgm-original.wav": "0ba4b789993b3d9bb4df84ea2d8f70c951ec703366f15109fb77fa8ef8b55381"
+  },
+  "style_identical": true,
+  "bgm_identical": true,
+  "gamejs_changes_only_help_ui": true,
+  "tests": {
+    "chromium_inline_960x540": "pass",
+    "chromium_inline_1440x900": "pass",
+    "first_start_help_flow": "pass",
+    "pageerror_0": "pass",
+    "node_check": "pass",
+    "direct_file_url": "not_tested_blocked",
+    "real_audio": "not_tested",
+    "full_30s_play": "not_tested"
+  },
+  "github_upload": false
+}
