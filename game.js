@@ -50,6 +50,7 @@ const modeBoard = document.getElementById("mode-board");
 const modeText = document.getElementById("mode-text");
 const bonusStatus = document.getElementById("bonus-status");
 const bonusResult = document.getElementById("bonus-result");
+const nearMissResult = document.getElementById("near-miss-result");
 const comboText = document.getElementById("combo-text");
 const comboTimeText = document.getElementById("combo-time");
 const finalComboText = document.getElementById("final-combo");
@@ -143,7 +144,30 @@ function averageFps(mode) {
 
 // STEP 3-11: 짧은 효과음은 외부 파일 없이 Web Audio API로 생성합니다.
 // 브라우저 자동재생 제한을 피하기 위해 실제 버튼 클릭 이후에만 오디오를 초기화합니다.
-let soundEnabled = true;
+// AUDIO v1.1.1: 기존 메타/도전 과제 저장값과 분리한 오디오 취향 설정.
+// 기존 사용자는 저장값이 없으므로 SFX와 MUSIC 모두 ON이 기본입니다.
+const AUDIO_PREFERENCES_KEY = "blue-collector-audio-v1";
+function loadAudioPreferences() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(AUDIO_PREFERENCES_KEY) || "null");
+    return {
+      sound: typeof raw?.sound === "boolean" ? raw.sound : true,
+      music: typeof raw?.music === "boolean" ? raw.music : true
+    };
+  } catch (_) {
+    return { sound: true, music: true }; // 사파리 비공개 모드 등 저장소 접근 실패
+  }
+}
+const initialAudioPreferences = loadAudioPreferences();
+let soundEnabled = initialAudioPreferences.sound;
+let bgmEnabled = initialAudioPreferences.music;
+function saveAudioPreferences() {
+  try {
+    localStorage.setItem(AUDIO_PREFERENCES_KEY, JSON.stringify({
+      sound: soundEnabled, music: bgmEnabled
+    }));
+  } catch (_) { /* 저장 실패는 게임 실행이나 버튼 변경을 막지 않습니다. */ }
+}
 let audioContext = null;
 function ensureAudio() {
   if (!soundEnabled) return null;
@@ -203,39 +227,78 @@ function updateSoundButton() {
 soundButton.addEventListener("click", () => {
   soundEnabled = !soundEnabled;
   updateSoundButton();
-  if (soundEnabled) ensureAudio();
+  saveAudioPreferences();
+  if (soundEnabled) {
+    ensureAudio();
+    startBgm(); // 게임 중이라면 사용자가 소리를 다시 켠 클릭으로 재생 재시도
+  } else {
+    pauseBgm(); // SOUND(SFX) OFF는 BGM도 음소거. MUSIC 취향 값은 유지
+  }
+  syncSettingsAudio();
 });
 updateSoundButton(); // 최초 진입 시에도 이모지 대신 상태 텍스트를 표시
 
 
 
-// STEP 6-5.3: 독립적인 테스트용 BGM. 효과음과 별도 설정이며 첫 실행은 OFF.
-// 이 오디오는 프로젝트를 위해 새로 만든 루프 파일이며 외부 네트워크를 사용하지 않습니다.
+// AUDIO v1.1.1: START GAME 클릭을 BGM의 첫 재생 사용자 제스처로 활용.
+// SFX OFF는 모든 소리를 음소거하고, MUSIC은 별도의 재생 선호도로 유지합니다.
 const bgmButton = document.getElementById("bgm-button");
 const bgmAudio = new Audio("blue-collector-bgm-original.wav");
 bgmAudio.loop = true;
 bgmAudio.preload = "auto";
-bgmAudio.volume = 0.18; // 효과음보다 낮게
-let bgmEnabled = false;
+bgmAudio.volume = 0.18; // 기존 음량 유지
+let bgmStartAuthorized = false; // 실제 START GAME / 처음 도움말 완료 클릭 이후에만 true
+let bgmPlayAttempt = 0;
+let bgmPlayPending = false;
 function updateBgmButton() {
   bgmButton.textContent = bgmEnabled ? "MUSIC ON" : "MUSIC OFF";
   bgmButton.setAttribute("aria-pressed", String(bgmEnabled));
 }
 function startBgm() {
-  if (!bgmEnabled || !running) return;
-  bgmAudio.play().catch(() => { /* 브라우저의 재생 제한 시 게임은 계속 실행 */ });
+  if (!soundEnabled || !bgmEnabled || !bgmStartAuthorized) return;
+  if (!bgmAudio.paused || bgmPlayPending) return; // 중복 play()/재시작 방지
+  const attempt = ++bgmPlayAttempt;
+  bgmPlayPending = true;
+  try {
+    const result = bgmAudio.play();
+    if (result && typeof result.then === "function") {
+      result.then(() => {
+        if (attempt === bgmPlayAttempt) bgmPlayPending = false;
+      }).catch(() => {
+        if (attempt !== bgmPlayAttempt) return; // 사용자가 끈 뒤 발생한 AbortError 등
+        bgmPlayPending = false;
+        // 브라우저/장치가 재생을 거절했다면 ON이라는 잘못된 표시를 남기지 않음.
+        // 재생 제한은 일시적일 수 있으므로 이 자동 OFF는 저장하지 않습니다.
+        bgmEnabled = false;
+        updateBgmButton();
+        syncSettingsAudio();
+      });
+    } else {
+      bgmPlayPending = false;
+    }
+  } catch (_) {
+    if (attempt !== bgmPlayAttempt) return;
+    bgmPlayPending = false;
+    bgmEnabled = false;
+    updateBgmButton();
+    syncSettingsAudio();
+  }
 }
-function stopBgm() {
+function pauseBgm() {
+  bgmPlayAttempt++; // 이전 play()의 비동기 결과가 새 상태를 덮지 못하게 함
+  bgmPlayPending = false;
   bgmAudio.pause();
-  try { bgmAudio.currentTime = 0; } catch (_) {}
+  // currentTime을 0으로 되돌리지 않음: 재시작 시 곡을 처음부터 다시 재생하지 않음.
 }
 bgmButton.addEventListener("click", () => {
   bgmEnabled = !bgmEnabled;
+  saveAudioPreferences();
   updateBgmButton();
   if (bgmEnabled) startBgm();
-  else stopBgm();
+  else pauseBgm();
+  syncSettingsAudio();
 });
-updateBgmButton(); // 초기 버튼도 픽셀 메뉴 표기와 통일
+updateBgmButton();
 
 
 // REDESIGN 02: 설정 페이지의 사운드 메뉴는 기존 사운드 버튼을 그대로 조작합니다.
@@ -252,7 +315,7 @@ settingsBgmToggle.addEventListener("click", () => { bgmButton.click(); syncSetti
 syncSettingsAudio();
 
 
-const GAME_VERSION = "v1.1.0"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
+const GAME_VERSION = "v1.2.0"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
 document.getElementById("game-version").textContent = GAME_VERSION;
 
 const GAME_DURATION_MS = 30_000; // 30초
@@ -273,6 +336,15 @@ const summaryBody = document.getElementById("summary-body");
 const exportCsvButton = document.getElementById("export-csv-button");
 const OBSTACLE_ADD_INTERVAL_MS = 10_000; // 10초마다 적 1개 추가
 const MAX_OBSTACLES = 3; // 시작 1개 + 10초에 1개 + 20초에 1개
+// STEP 08: 새 적의 실제 생성 위치를 최소 1초 동안 미리 보여줍니다.
+const OBSTACLE_WARNING_MS = 1000;
+
+// GAMEPLAY 11: NEAR MISS test parameters (display/gameplay experiment only).
+const NEAR_MISS_GAP_PX = 24;
+const NEAR_MISS_POINTS = 20;
+const NEAR_MISS_COOLDOWN_MS = 2000;
+const NEAR_MISS_MAX_PER_RUN = 10;
+const NEAR_MISS_SPAWN_GRACE_MS = 1000;
 
 // STEP 6-2: 기본 점수만 코인으로 지급 / 전쟁 모드에서만 보호막 발동.
 // 기존 localStorage 키는 유지하므로 STEP 6-1에서 모은 코인/구매 내역도 보존됩니다.
@@ -456,6 +528,14 @@ const item = {
 };
 
 const obstacles = []; // 추적 장애물들을 보관하는 배열
+// 적 객체를 키로 사용해 근접 상태와 등장 시각을 별도로 기록합니다.
+// 기존 적의 위치/크기/이동 로직과 저장 데이터 구조를 건드리지 않습니다.
+let nearMissStates = new WeakMap();
+let nearMissCount = 0;
+let nearMissPoints = 0;
+function registerNearMissEnemy(obstacle, spawnedAt = performance.now()) {
+  nearMissStates.set(obstacle, { spawnedAt, nearby: false, lastAwardedAt: -Infinity });
+}
 
 // 아이템 획득 순간의 짧은 시각 효과 (게임 점수/충돌 판정과는 독립적)
 const pickupEffects = [];
@@ -685,13 +765,14 @@ function keepObstacleInside(obstacle) {
 const PREFERRED_SPAWN_DISTANCE = 260;
 const ABSOLUTE_MIN_SPAWN_DISTANCE = 110;
 const OBSTACLE_SPAWN_SAMPLES = 180;
+let pendingObstacleWarning = null; // 위치, 예고 시작 시점, 예정 등장 시점
 
 function centerDistance(a, b) {
   return Math.hypot(a.x + a.size / 2 - (b.x + b.size / 2),
                     a.y + a.size / 2 - (b.y + b.size / 2));
 }
 
-function spawnObstacle() {
+function findObstacleSpawnPosition() {
   const size = 48;
   const maxX = canvas.width - size;
   const maxY = canvas.height - size;
@@ -736,30 +817,95 @@ function spawnObstacle() {
 
   if (pool.length === 0) return false;
   const selected = pool[Math.floor(Math.random() * pool.length)];
-  obstacles.push({ x: selected.x, y: selected.y, size });
+  return { x: selected.x, y: selected.y, size };
+}
+
+// 시작 시 최초 적은 즉시 등장. 이후 적은 사전에 예고된 좌표에만 등장합니다.
+function spawnObstacle(position = null) {
+  const selected = position ?? findObstacleSpawnPosition();
+  if (!selected) return false;
+  const obstacle = { x: selected.x, y: selected.y, size: selected.size };
+  obstacles.push(obstacle);
+  registerNearMissEnemy(obstacle);
   obstacleCountText.textContent = obstacles.length;
   return true;
 }
 
+// GAMEPLAY 09: 기본 추적은 유지하되, 겹침에 가까워지면 이동 방향만 보정합니다.
+// 속도 상한, 크기, 적 생성과 충돌 판정은 기존 규칙을 유지합니다.
+const ENEMY_SEPARATION_RADIUS = 95; // 적 48px 기준, 근접했을 때만 반발 방향 추가
+const ENEMY_SEPARATION_STRENGTH = 3.0; // 첫 밸런스 테스트용; 확정 수치 아님
+
 function moveObstacles(deltaSeconds) {
-  for (const obstacle of obstacles) {
-    const dx = player.x + player.size / 2 - (obstacle.x + obstacle.size / 2);
-    const dy = player.y + player.size / 2 - (obstacle.y + obstacle.size / 2);
+  // 같은 프레임 안에서 앞 적의 이동 결과가 뒤 적의 판단에 영향을 주지 않도록 고정 위치 사용.
+  const snapshot = obstacles.map(({ x, y, size }) => ({ x, y, size }));
+  for (let i = 0; i < obstacles.length; i++) {
+    const obstacle = obstacles[i];
+    const origin = snapshot[i];
+    const dx = player.x + player.size / 2 - (origin.x + origin.size / 2);
+    const dy = player.y + player.size / 2 - (origin.y + origin.size / 2);
     const distance = Math.hypot(dx, dy);
-    if (distance === 0) continue;
+    if (distance === 0) continue; // 기존: 플레이어 중심에 도착하면 이동 종료
+    const chaseX = dx / distance;
+    const chaseY = dy / distance;
+
+    let avoidX = 0;
+    let avoidY = 0;
+    for (let j = 0; j < snapshot.length; j++) {
+      if (i === j) continue;
+      const other = snapshot[j];
+      const awayX = origin.x + origin.size / 2 - (other.x + other.size / 2);
+      const awayY = origin.y + origin.size / 2 - (other.y + other.size / 2);
+      const gap = Math.hypot(awayX, awayY);
+      if (gap >= ENEMY_SEPARATION_RADIUS) continue;
+      // 두 적의 중심이 완전히 같아도 NaN 없이 서로 반대 방향으로 벗어나게 처리.
+      const unitX = gap > 0.0001 ? awayX / gap : (i < j ? -1 : 1);
+      const unitY = gap > 0.0001 ? awayY / gap : 0;
+      const weight = ((ENEMY_SEPARATION_RADIUS - gap) / ENEMY_SEPARATION_RADIUS)
+        * ENEMY_SEPARATION_STRENGTH;
+      avoidX += unitX * weight;
+      avoidY += unitY * weight;
+    }
+
+    const steerX = chaseX + avoidX;
+    const steerY = chaseY + avoidY;
+    const steerLength = Math.hypot(steerX, steerY);
+    if (steerLength < 0.000001) continue;
+    // 기존과 동일한 초당 이동거리 상한. 분리 벡터가 속도를 높이지 않도록 정규화.
     const step = Math.min(obstacleSpeed * deltaSeconds, distance);
-    obstacle.x += (dx / distance) * step;
-    obstacle.y += (dy / distance) * step;
+    obstacle.x += (steerX / steerLength) * step;
+    obstacle.y += (steerY / steerLength) * step;
     keepObstacleInside(obstacle);
   }
 }
 
 function addObstaclesForElapsedTime(now) {
-  const elapsed = Math.max(0, now - gameStartsAt);
-  const wanted = Math.min(MAX_OBSTACLES, 1 + Math.floor(elapsed / OBSTACLE_ADD_INTERVAL_MS));
-  while (obstacles.length < wanted) {
-    if (!spawnObstacle()) break; // 적절한 생성 공간이 없으면 다음 프레임에 재시도
+  const nextEnemyIndex = obstacles.length; // 1개 존재 → 10초, 2개 존재 → 20초
+  if (nextEnemyIndex >= MAX_OBSTACLES) {
+    pendingObstacleWarning = null;
+    return;
   }
+
+  const dueAt = gameStartsAt + nextEnemyIndex * OBSTACLE_ADD_INTERVAL_MS;
+  if (now < dueAt - OBSTACLE_WARNING_MS) return;
+
+  if (!pendingObstacleWarning) {
+    // 기존 위치 선정의 260px 선호 / 110px 최소 거리와 후보 탐색 규칙은 유지.
+    const position = findObstacleSpawnPosition();
+    if (!position) return;
+    pendingObstacleWarning = { ...position, warnedAt: now, dueAt };
+  }
+
+  // 예고 위치를 1초 이상 노출하고, 기존 등장 예정 시각도 지나야 생성합니다.
+  if (now < Math.max(pendingObstacleWarning.warnedAt + OBSTACLE_WARNING_MS,
+                     pendingObstacleWarning.dueAt)) return;
+
+  // STEP 09.1: 경고한 위치를 끝까지 고정합니다.
+  // 플레이어가 경고 칸으로 접근해도 다른 위치를 새로 뽑지 않습니다.
+  // 예고 시간(1초)과 예정 시각이 지나면 반드시 그 위치에서 등장합니다.
+  // 주의: 그 자리에 서 있으면 기존 충돌 규칙에 따라 즉시 위험해질 수 있습니다.
+  spawnObstacle(pendingObstacleWarning);
+  pendingObstacleWarning = null;
 }
 
 function overlaps(a, b) {
@@ -767,6 +913,50 @@ function overlaps(a, b) {
          a.x + a.size > b.x &&
          a.y < b.y + b.size &&
          a.y + a.size > b.y;
+}
+
+// 두 정사각형의 실제 가장자리 사이 최단 거리: 대각선 방향도 직각 거리로 계산.
+// 충돌 판정(overlaps)은 그대로 사용하고, NEAR MISS 근접 판단에만 활용합니다.
+function rectangleEdgeGap(a, b) {
+  const horizontalGap = Math.max(0, a.x - (b.x + b.size), b.x - (a.x + a.size));
+  const verticalGap = Math.max(0, a.y - (b.y + b.size), b.y - (a.y + a.size));
+  return Math.hypot(horizontalGap, verticalGap);
+}
+
+function updateNearMisses(now) {
+  if (nearMissCount >= NEAR_MISS_MAX_PER_RUN) return;
+  const invulnerable = now < shieldInvulnerableUntil;
+  for (const enemy of obstacles) {
+    let state = nearMissStates.get(enemy);
+    if (!state) {
+      registerNearMissEnemy(enemy, now);
+      state = nearMissStates.get(enemy);
+    }
+
+    // 등장 직후 / 충돌 / 보호막 무적 중에는 어떤 근접 기록도 쌓지 않습니다.
+    if (now - state.spawnedAt < NEAR_MISS_SPAWN_GRACE_MS ||
+        invulnerable || overlaps(player, enemy)) {
+      state.nearby = false;
+      continue;
+    }
+
+    const gap = rectangleEdgeGap(player, enemy);
+    if (gap <= NEAR_MISS_GAP_PX) {
+      // 쿨다운 중 접촉은 새 근접 이벤트로 인정하지 않습니다.
+      if (now - state.lastAwardedAt >= NEAR_MISS_COOLDOWN_MS) state.nearby = true;
+    } else if (gap > NEAR_MISS_GAP_PX + 6 && state.nearby) {
+      state.nearby = false;
+      if (now - state.lastAwardedAt < NEAR_MISS_COOLDOWN_MS) continue;
+      if (nearMissCount >= NEAR_MISS_MAX_PER_RUN) break;
+      state.lastAwardedAt = now;
+      nearMissCount += 1;
+      nearMissPoints += NEAR_MISS_POINTS;
+      score += NEAR_MISS_POINTS; // 기본 점수: 코인에 포함, 콤보/전쟁 보너스에는 제외
+      scoreText.textContent = score;
+      // mode-change는 기존 CSS의 작은 우상단 알림 레이아웃을 재사용합니다.
+      showFeedback(`NEAR MISS +${NEAR_MISS_POINTS}`, "", "mode-change", 700, 0);
+    }
+  }
 }
 
 // 아이템은 실제로 보이는 게임 영역에만 생성합니다.
@@ -825,22 +1015,45 @@ function isValidItemPosition(candidate) {
          !obstacles.some(obstacle => overlapsObstacleWithGap(candidate, obstacle));
 }
 
+// GAMEPLAY 10: 무작위성은 유지하면서 접근 가능한 위치와 적 간격을 우선합니다.
+// 이 값들은 새 플레이 테스트에서 조정할 초기 제안값이며 점수/속도 규칙은 변경하지 않습니다.
+const ITEM_PREFERRED_NEAR_DISTANCE = 100;
+const ITEM_PREFERRED_FAR_DISTANCE = 350;
+const ITEM_PREFERRED_ENEMY_DISTANCE = 150;
+const ITEM_POSITION_SAMPLES = 250; // 기존 랜덤 탐색 250회 유지
+function isPreferredItemPosition(candidate) {
+  const playerDistance = centerDistance(candidate, player);
+  if (playerDistance < ITEM_PREFERRED_NEAR_DISTANCE ||
+      playerDistance > ITEM_PREFERRED_FAR_DISTANCE) return false;
+  if (obstacles.some(obstacle => centerDistance(candidate, obstacle) < ITEM_PREFERRED_ENEMY_DISTANCE)) return false;
+  if (pendingObstacleWarning && centerDistance(candidate, pendingObstacleWarning) < ITEM_PREFERRED_ENEMY_DISTANCE) return false;
+  return true;
+}
+
 function resetItem() {
   item.collected = false;
   const maxX = Math.max(0, canvas.width - item.size);
   const maxY = Math.max(0, canvas.height - item.size);
+  const preferred = [];
+  let fallback = null;
 
-  // 먼저 무작위 위치를 탐색합니다.
-  for (let i = 0; i < 250; i++) {
+  // 기존 유효 위치 조건(HUD, 플레이어, 적 + 16px)을 반드시 통과한 후보만 사용.
+  for (let i = 0; i < ITEM_POSITION_SAMPLES; i++) {
     const candidate = { x: Math.random() * maxX, y: Math.random() * maxY, size: item.size };
-    if (isValidItemPosition(candidate)) {
-      item.x = candidate.x;
-      item.y = candidate.y;
-      return;
-    }
+    if (!isValidItemPosition(candidate)) continue;
+    if (!fallback) fallback = candidate;
+    if (isPreferredItemPosition(candidate)) preferred.push(candidate);
+  }
+  const selected = preferred.length
+    ? preferred[Math.floor(Math.random() * preferred.length)]
+    : fallback;
+  if (selected) {
+    item.x = selected.x;
+    item.y = selected.y;
+    return;
   }
 
-  // 랜덤으로 못 찾으면 일정 간격으로 탐색합니다. 가려지는 (0,0) 강제 배치는 하지 않습니다.
+  // 기존 격자 폴백 유지: 어려운 지형에서도 유효한 후보가 있으면 반드시 배치.
   const step = Math.max(5, Math.floor(item.size / 2));
   for (let y = 0; y <= maxY; y += step) {
     for (let x = 0; x <= maxX; x += step) {
@@ -944,6 +1157,9 @@ function update(deltaSeconds, now) {
       }
     }
   }
+
+  // 기존 적 충돌/보호막 처리 이후, 아이템 획득 및 콤보 갱신 이전에 실행.
+  updateNearMisses(now);
 
   if (!item.collected && overlaps(player, item)) {
     // 4초 안에 연속으로 획득하면 10점 → 20점 → 30점(상한)을 획득합니다.
@@ -1100,10 +1316,41 @@ function drawEnergyCore(now) {
   ctx.restore();
 }
 
+// STEP 08: 전역 경고창이 아닌 실제 스폰 좌표에 픽셀 프레임을 표시합니다.
+function drawObstacleSpawnWarning(now) {
+  if (!pendingObstacleWarning) return;
+  const { x, y, size } = pendingObstacleWarning;
+  const pulse = 0.80 + 0.10 * Math.sin(now / 160); // 점멸 없이 은은한 강도 변화
+  ctx.save();
+  ctx.globalAlpha = pulse;
+  ctx.fillStyle = "rgba(240,82,82,0.13)";
+  ctx.fillRect(Math.round(x), Math.round(y), size, size);
+  ctx.strokeStyle = "#F05252";
+  ctx.lineWidth = 3;
+  ctx.setLineDash([7, 5]);
+  ctx.strokeRect(Math.round(x) - 2, Math.round(y) - 2, size + 4, size + 4);
+  ctx.setLineDash([]);
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(x + 14, y + 14); ctx.lineTo(x + size - 14, y + size - 14);
+  ctx.moveTo(x + size - 14, y + 14); ctx.lineTo(x + 14, y + size - 14);
+  ctx.stroke();
+  // 주변에서 먼저 인지할 수 있도록 짧은 라벨을 프레임 바로 옆에 배치.
+  ctx.fillStyle = "#F05252";
+  ctx.font = "bold 10px monospace";
+  ctx.textBaseline = "bottom";
+  const label = "ENEMY INCOMING";
+  const labelX = Math.min(Math.max(4, x), GAME_WIDTH - 111);
+  const labelY = y >= 18 ? y - 7 : y + size + 15;
+  ctx.fillText(label, labelX, labelY);
+  ctx.restore();
+}
+
 function draw(now = performance.now()) {
   drawArena();
   if (!item.collected) drawEnergyCrystal(now);
   for (const obstacle of obstacles) drawSentinel(obstacle, now);
+  drawObstacleSpawnWarning(now);
   drawEnergyCore(now);
   drawPickupEffects(now);
 }
@@ -1145,9 +1392,9 @@ function renderTestSummary() {
 // 전체 플레이 기록을 엑셀에서도 열 수 있는 UTF-8 CSV 파일로 저장합니다.
 function exportCsv() {
   if (testRecords.length === 0) return;
-  const lines = ["회차,난이도,장애물속도(px/s),최종점수,생존시간(초),종료사유,최대연속획득,확정보너스,손실보너스,전쟁중획득수,안전모드평균FPS,전쟁모드평균FPS,안전모드50ms초과프레임,전쟁모드50ms초과프레임,기본점수(코인기준),획득코인,보호막사용여부,종료시보유코인,개인최고점수"];
+  const lines = ["회차,난이도,장애물속도(px/s),최종점수,생존시간(초),종료사유,최대연속획득,확정보너스,손실보너스,전쟁중획득수,안전모드평균FPS,전쟁모드평균FPS,안전모드50ms초과프레임,전쟁모드50ms초과프레임,기본점수(코인기준),획득코인,보호막사용여부,종료시보유코인,개인최고점수,game_version,near_miss_count,near_miss_points"];
   testRecords.forEach((record, index) => {
-    lines.push([index + 1, DIFFICULTY_NAMES[record.difficulty], DIFFICULTY_SPEEDS[record.difficulty], record.score, record.survival.toFixed(1), record.reason === "time" ? "시간 완료" : "장애물 충돌", record.maxCombo, record.securedBonus, record.lostBonus, record.warPickups, record.safeFps, record.warFps, record.safeJank, record.warJank, record.baseScore, record.earnedCoins, record.shieldUsed ? "사용" : "미사용", record.walletCoins, record.bestScore].join(","));
+    lines.push([index + 1, DIFFICULTY_NAMES[record.difficulty], DIFFICULTY_SPEEDS[record.difficulty], record.score, record.survival.toFixed(1), record.reason === "time" ? "시간 완료" : "장애물 충돌", record.maxCombo, record.securedBonus, record.lostBonus, record.warPickups, record.safeFps, record.warFps, record.safeJank, record.warJank, record.baseScore, record.earnedCoins, record.shieldUsed ? "사용" : "미사용", record.walletCoins, record.bestScore, record.game_version, record.near_miss_count, record.near_miss_points].join(","));
   });
   const blob = new Blob(["\uFEFF", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -1170,6 +1417,7 @@ function finishGame(reason = "time") {
     pendingWarBonus = 0;
   }
   bonusResult.textContent = `전쟁 보너스: 확정 +${securedWarBonus}점 · 손실 ${lostWarBonus}점 · 전쟁 아이템 ${warPickupCount}개`;
+  nearMissResult.textContent = `NEAR MISS ${nearMissCount}회 +${nearMissPoints}점`;
   // 정산은 finishGame에서 한 번만 수행되므로 점수/코인 중복 지급을 방지합니다.
   // 코인은 확정 전쟁 보너스를 제외한 기본 획득 점수만 지급합니다.
   // 기본 점수는 안전/전쟁 모두에서 얻은 아이템 점수의 합이며,
@@ -1196,7 +1444,7 @@ function finishGame(reason = "time") {
   playEndSound(reason);
   const survivedSeconds = Math.min(30, Math.max(0, (performance.now() - gameStartsAt) / 1000));
   endStats.textContent = `${selectedDifficulty.toUpperCase()} / ${survivedSeconds.toFixed(1)}s`;
-  testRecords.push({ difficulty: selectedDifficulty, score, survival: survivedSeconds, reason, maxCombo, securedBonus: securedWarBonus, lostBonus: lostWarBonus, warPickups: warPickupCount, safeFps: averageFps("safe"), warFps: averageFps("war"), safeJank: perfByMode.safe.longFrames, warJank: perfByMode.war.longFrames, baseScore: score - securedWarBonus, earnedCoins: earnedCoinsThisRun, shieldUsed: shieldUsedThisRun, walletCoins: meta.coins, bestScore: meta.bestScore });
+  testRecords.push({ difficulty: selectedDifficulty, score, survival: survivedSeconds, reason, maxCombo, securedBonus: securedWarBonus, lostBonus: lostWarBonus, warPickups: warPickupCount, safeFps: averageFps("safe"), warFps: averageFps("war"), safeJank: perfByMode.safe.longFrames, warJank: perfByMode.war.longFrames, baseScore: score - securedWarBonus, earnedCoins: earnedCoinsThisRun, shieldUsed: shieldUsedThisRun, walletCoins: meta.coins, bestScore: meta.bestScore, game_version: GAME_VERSION, near_miss_count: nearMissCount, near_miss_points: nearMissPoints });
   const performanceResult = document.getElementById("performance-result");
   performanceResult.hidden = !debugMode;
   if (debugMode) performanceResult.textContent = `성능 측정: 안전 ${averageFps("safe") || "-"} FPS / 전쟁 ${averageFps("war") || "-"} FPS · 50ms 초과 프레임 안전 ${perfByMode.safe.longFrames}회 / 전쟁 ${perfByMode.war.longFrames}회`;
@@ -1210,7 +1458,8 @@ function finishGame(reason = "time") {
     recordList.appendChild(li);
   }
   running = false;
-  stopBgm();
+  bgmStartAuthorized = false;
+  pauseBgm();
   feedbackUntil = 0;
   updateFeedback(performance.now());
   animationId = null;
@@ -1299,6 +1548,11 @@ function beginGame() {
   resetCombo();
   resetPlayer();
   obstacles.length = 0;
+  nearMissStates = new WeakMap();
+  nearMissCount = 0;
+  nearMissPoints = 0;
+  nearMissResult.textContent = "NEAR MISS 0회 +0점";
+  pendingObstacleWarning = null;
 
   // HUD를 먼저 표시해야 실제 버튼 좌표를 기준으로 아이템 위치를 검사할 수 있습니다.
   startScreen.hidden = true;
@@ -1326,8 +1580,8 @@ function beginGame() {
 
   draw();
   running = true;
-  stopBgm();
-  startBgm();
+  bgmStartAuthorized = true;
+  startBgm(); // START 버튼에서 재생했다면 중복 호출해도 재시작하지 않음
   animationId = requestAnimationFrame(loop);
 }
 
@@ -1422,6 +1676,8 @@ function playLandingIntro() {
 }
 function startGame() {
   if (introIsPlaying || !helpOverlay.hidden) return;
+  bgmStartAuthorized = true;
+  startBgm(); // 첫 START GAME 클릭 안에서 호출: 브라우저 자동재생 제한 대응
   if (!helpSeen) {
     startAfterHelp = true;
     openHelp(startButton);
@@ -1477,12 +1733,16 @@ function openHelp(trigger = null) {
   helpDoneButton.textContent = "START GAME →";
   (startAfterHelp ? helpDoneButton : helpCloseButton).focus();
 }
-function closeHelp() {
+function closeHelp(continueToGame = false) {
   if (helpOverlay.hidden) return;
   helpOverlay.hidden = true;
   try { localStorage.setItem(HELP_SEEN_KEY, "1"); } catch (_) { /* 스토리지 제한에서도 정상 동작 */ }
   helpSeen = true;
   startAfterHelp = false;
+  if (!continueToGame && !running && bgmStartAuthorized) {
+    bgmStartAuthorized = false; // 첫 실행 도움말을 취소한 경우 메뉴 BGM 중단
+    pauseBgm();
+  }
   if (previousHelpFocus && document.contains(previousHelpFocus)) previousHelpFocus.focus();
   else startButton.focus();
 }
@@ -1490,8 +1750,12 @@ helpOpenButton.addEventListener("click", () => openHelp(helpOpenButton));
 helpCloseButton.addEventListener("click", closeHelp);
 helpDoneButton.addEventListener("click", () => {
   const shouldStart = startAfterHelp;
-  closeHelp();
-  if (shouldStart) beginGame();
+  closeHelp(shouldStart);
+  if (shouldStart) {
+    bgmStartAuthorized = true;
+    startBgm(); // 도움말의 START GAME 클릭도 직접적인 사용자 제스처
+    beginGame();
+  }
 });
 window.addEventListener("keydown", event => {
   if (helpOverlay.hidden) return;
