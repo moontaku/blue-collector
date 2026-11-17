@@ -1687,3 +1687,26 @@ html, body { background:#0B0B10 !important; background-image:none !important; }
 #feedback-layer.mode-change.bank-secured #feedback-primary {font-size:18px;color:var(--pix-yellow);white-space:nowrap;line-height:1.4;}
 #end-screen #result-gameplay-tip {margin:7px 0 0;color:#F3D86A;font-size:10px;line-height:1.4;font-weight:750;max-width:100%;}
 #end-screen #result-gameplay-tip[hidden] {display:none!important;}
+
+
+/* v1.2.1-test — HUD occlusion display only; gameplay and collision unchanged. */
+#mode-board, #mode-board.safe, #mode-board.war { transition: opacity .15s ease, border-color .14s ease; }
+#mode-board.hud-occluded { opacity: .25; }
+
+/* v1.2.1-test — SCORE HUD also fades only while obscuring player/enemy. */
+#score-board { transition: opacity .15s ease; }
+#score-board.hud-occluded { opacity: .25; }
+
+/* v1.2.1-test — COMBO, CHASERS and TIME LEFT also fade on overlap. */
+#combo-board, #obstacle-board, #timer-board { transition: opacity .15s ease; }
+#combo-board.hud-occluded, #obstacle-board.hud-occluded, #timer-board.hud-occluded { opacity: .25; }
+
+/* v1.2.1-test — Top-right controls: fade on overlap, restore clarity on interaction. */
+#restart-button, #sound-button, #bgm-button { transition: background-color .15s ease, transform .15s ease, opacity .15s ease; }
+#restart-button.hud-occluded, #sound-button.hud-occluded, #bgm-button.hud-occluded { opacity: .55; }
+#restart-button.hud-occluded:is(:hover, :focus),
+#sound-button.hud-occluded:is(:hover, :focus),
+#bgm-button.hud-occluded:is(:hover, :focus) { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  #restart-button, #sound-button, #bgm-button { transition: none; }
+}

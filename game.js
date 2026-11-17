@@ -995,6 +995,36 @@ function updateNearMisses(now) {
   }
 }
 
+// 플레이어/적이 실제 HUD 영역 아래에 있을 때 HUD만 반투명하게 표시합니다.
+// Canvas(게임 좌표)와 DOM(HUD 화면 좌표)을 동일한 기준으로 비교합니다.
+function updateModeBoardOcclusion() {
+  const hudBoards = [scoreBoard, comboBoard, obstacleBoard, timerBoard, modeBoard];
+  const controlButtons = [restartButton, soundButton, bgmButton];
+  if (hudBoards.every(board => board.hidden)) {
+    [...hudBoards, ...controlButtons].forEach(board => board.classList.remove("hud-occluded"));
+    return;
+  }
+  const canvasRect = canvas.getBoundingClientRect();
+  const scaleX = canvasRect.width / GAME_WIDTH;
+  const scaleY = canvasRect.height / GAME_HEIGHT;
+  if (!scaleX || !scaleY) return;
+  for (const board of [...hudBoards, ...controlButtons]) {
+    if (board.hidden) {
+      board.classList.remove("hud-occluded");
+      continue;
+    }
+    const hudRect = board.getBoundingClientRect();
+    const left = (hudRect.left - canvasRect.left) / scaleX;
+    const right = (hudRect.right - canvasRect.left) / scaleX;
+    const top = (hudRect.top - canvasRect.top) / scaleY;
+    const bottom = (hudRect.bottom - canvasRect.top) / scaleY;
+    const overlapsHud = entity =>
+      entity.x < right && entity.x + entity.size > left &&
+      entity.y < bottom && entity.y + entity.size > top;
+    board.classList.toggle("hud-occluded", overlapsHud(player) || obstacles.some(overlapsHud));
+  }
+}
+
 // 아이템은 실제로 보이는 게임 영역에만 생성합니다.
 // 오른쪽 '다시 시작' 버튼과 왼쪽 HUD를 포함해 화면 UI를 피합니다.
 function overlapsVisibleUI(candidate) {
@@ -1541,6 +1571,9 @@ function finishGame(reason = "time") {
   document.getElementById("result-coin-earned").textContent = `+${earnedCoinsThisRun.toLocaleString("ko-KR")}`;
   comboBoard.hidden = true;
   modeBoard.hidden = true;
+  for (const board of [scoreBoard, comboBoard, obstacleBoard, timerBoard, modeBoard, restartButton, soundButton, bgmButton]) {
+    board.classList.remove("hud-occluded");
+  }
   perfPanel.hidden = true;
   endScreen.dataset.result = reason === "obstacle" ? "over" : "clear";
   document.getElementById("end-title").textContent = reason === "obstacle" ? "GAME OVER" : "RUN CLEAR";
@@ -1566,6 +1599,7 @@ function loop(now) {
   trackPerformance(now);
   addObstaclesForElapsedTime(now);
   update(deltaSeconds, now);
+  updateModeBoardOcclusion();
   prunePickupEffects(now);
   updateFeedback(now);
   updateWarLockDisplay(now);
@@ -1641,6 +1675,7 @@ function beginGame() {
 
   draw();
   drawReadyLabels();
+  updateModeBoardOcclusion();
   readyActive = true;
   readyOverlay.hidden = false;
   const thisReadyGeneration = ++readyGeneration;
@@ -1860,6 +1895,9 @@ changeDifficultyButton.addEventListener("click", () => {
   obstacleBoard.hidden = true;
   comboBoard.hidden = true;
   modeBoard.hidden = true;
+  for (const board of [scoreBoard, comboBoard, obstacleBoard, timerBoard, modeBoard, restartButton, soundButton, bgmButton]) {
+    board.classList.remove("hud-occluded");
+  }
   perfPanel.hidden = true;
   document.getElementById("game").classList.remove("war-mode");
   startMenuDemo();
@@ -1979,6 +2017,7 @@ window.addEventListener("blur", () => {
 
 window.addEventListener("resize", () => {
   resizeCanvas();
+  updateModeBoardOcclusion();
   draw();
 });
 
