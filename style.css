@@ -1674,3 +1674,16 @@ html, body { background:#0B0B10 !important; background-image:none !important; }
 #help-overlay .help-dialog {gap:5px;}
 #help-overlay .help-step {padding-top:9px;padding-bottom:9px;gap:6px;}
 #help-overlay .help-rule-art {height:36px;min-height:36px;margin:0 0 1px;}
+
+
+/* v1.2.1-test — onboarding-only additions. Previous selectors unchanged. */
+#help-overlay #help-intro {font-size:17px;line-height:1.5;color:#F3EFE4;font-weight:900;letter-spacing:.005em;}
+#ready-overlay {position:absolute;inset:0;z-index:4;pointer-events:none;font-family:inherit;font-weight:900;letter-spacing:.12em;}
+#ready-overlay[hidden] {display:none!important;}
+#ready-overlay .ready-top {position:absolute;top:171px;left:50%;transform:translateX(-50%);font-size:16px;color:var(--pix-frame);text-shadow:2px 2px 0 #0B0B10;white-space:nowrap;}
+#ready-overlay .ready-bottom {position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-size:12px;color:var(--pix-frame);text-shadow:2px 2px 0 #0B0B10;white-space:nowrap;background:rgba(11,11,16,.84);padding:5px 10px;border:1px solid #56545b;}
+#feedback-layer.mode-change.bank-ready {width:375px;right:17px;}
+#feedback-layer.mode-change.bank-ready #feedback-primary {font-size:15px;color:var(--pix-yellow);white-space:nowrap;line-height:1.4;}
+#feedback-layer.mode-change.bank-secured #feedback-primary {font-size:18px;color:var(--pix-yellow);white-space:nowrap;line-height:1.4;}
+#end-screen #result-gameplay-tip {margin:7px 0 0;color:#F3D86A;font-size:10px;line-height:1.4;font-weight:750;max-width:100%;}
+#end-screen #result-gameplay-tip[hidden] {display:none!important;}

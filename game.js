@@ -315,7 +315,7 @@ settingsBgmToggle.addEventListener("click", () => { bgmButton.click(); syncSetti
 syncSettingsAudio();
 
 
-const GAME_VERSION = "v1.2.0"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
+const GAME_VERSION = "v1.2.1-test"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
 document.getElementById("game-version").textContent = GAME_VERSION;
 
 const GAME_DURATION_MS = 30_000; // 30초
@@ -586,6 +586,7 @@ const WAR_BONUS_RATE = 0.5;
 const WAR_PICKUP_SURVIVAL_MS = 2000;
 let lastWarPickupAt = null;
 let lastWarLockDisplay = "";
+let bankReadyNoticeShown = false;
 function remainingWarLockMs(now = performance.now()) {
   return gameMode === "war" && lastWarPickupAt !== null
     ? Math.max(0, WAR_PICKUP_SURVIVAL_MS - (now - lastWarPickupAt)) : 0;
@@ -593,13 +594,20 @@ function remainingWarLockMs(now = performance.now()) {
 function updateWarLockDisplay(now = performance.now()) {
   const element = document.getElementById("war-lock-status");
   const remaining = remainingWarLockMs(now);
+  const canBank = gameMode === "war" && lastWarPickupAt !== null && remaining === 0 && pendingWarBonus > 0;
+  if (!canBank) {
+    bankReadyNoticeShown = false;
+  } else if (!bankReadyNoticeShown) {
+    bankReadyNoticeShown = true;
+    showFeedback(`SPACE → 안전 복귀 · +${pendingWarBonus} 확정`, "", "mode-change bank-ready", 950, 3);
+  }
   const message = gameMode !== "war"
     ? "SPACE : WAR"
     : remaining > 0
       ? `LOCK ${(remaining / 1000).toFixed(1)}s`
-      : lastWarPickupAt === null
-        ? "SPACE : SAFE"
-        : "SPACE : BANK";
+      : canBank
+        ? `SPACE → 안전 복귀 · +${pendingWarBonus} 확정`
+        : "SPACE : SAFE";
   if (message !== lastWarLockDisplay) {
     element.textContent = message;
     element.classList.toggle("locked", remaining > 0);
@@ -663,7 +671,11 @@ function toggleGameMode() {
     }
     const justSecured = pendingWarBonus;
     secureWarBonus();
-    showFeedback("SAFE MODE", justSecured ? `BONUS SECURED +${justSecured}` : "위험도 초기화", "safe mode-change", 750, 2);
+    if (justSecured > 0) {
+      showFeedback(`BONUS SECURED +${justSecured}`, "SAFE MODE", "safe mode-change bank-secured", 1000, 5);
+    } else {
+      showFeedback("SAFE MODE", "위험도 초기화", "safe mode-change", 750, 2);
+    }
     gameMode = "safe";
     lastWarPickupAt = null;
     warStreakPickups = 0;
@@ -677,6 +689,30 @@ function toggleGameMode() {
   renderGameMode();
 }
 let running = false;
+let readyActive = false;
+let readyTimerId = null;
+let readyGeneration = 0;
+const READY_DURATION_MS = 1500;
+const readyOverlay = document.getElementById("ready-overlay");
+function cancelReady() {
+  readyGeneration += 1;
+  if (readyTimerId !== null) clearTimeout(readyTimerId);
+  readyTimerId = null;
+  readyActive = false;
+  readyOverlay.hidden = true;
+}
+function startReadyGame() {
+  if (!readyActive) return;
+  cancelReady(); // Cancels timeout and prevents a second GO from starting another loop.
+  gameStartsAt = performance.now();
+  // READY 동안 소비된 유예 시간을 GO 시점 기준으로 돌림.
+  obstacles.forEach(enemy => registerNearMissEnemy(enemy, gameStartsAt));
+  gameEndsAt = gameStartsAt + GAME_DURATION_MS;
+  lastFrameAt = null;
+  draw(); // Remove READY labels before the first active frame.
+  running = true;
+  animationId = requestAnimationFrame(loop);
+}
 let score = 0;
 let combo = 0;
 let maxCombo = 0;
@@ -1346,6 +1382,27 @@ function drawObstacleSpawnWarning(now) {
   ctx.restore();
 }
 
+function drawReadyLabels() {
+  if (meta.totalRuns >= 3) return;
+  ctx.save();
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  ctx.font = 'bold 14px "Courier New", monospace';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#0B0B10";
+  function label(text, entity, color) {
+    const x = Math.max(48, Math.min(GAME_WIDTH - 48, entity.x + entity.size / 2));
+    const y = entity.y >= 34 ? entity.y - 15 : Math.min(GAME_HEIGHT - 14, entity.y + entity.size + 16);
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+  }
+  label("YOU", player, "#3976FF");
+  if (!item.collected) label("COLLECT", item, "#F5CF37");
+  if (obstacles.length) label("AVOID", obstacles[0], "#F05252");
+  ctx.restore();
+}
+
 function draw(now = performance.now()) {
   drawArena();
   if (!item.collected) drawEnergyCrystal(now);
@@ -1471,6 +1528,7 @@ function finishGame(reason = "time") {
   timerBoard.hidden = true;
   obstacleBoard.hidden = true;
   finalScoreText.textContent = score;
+  document.getElementById("result-gameplay-tip").hidden = !(warPickupCount === 0 && meta.totalRuns <= 5);
   // 이전 최고 점수를 기준으로 표시만 계산하며 저장값이나 보상은 변경하지 않습니다.
   const resultBestText = document.getElementById("result-best-comparison");
   resultBestText.textContent = score > previousBest
@@ -1521,7 +1579,9 @@ function beginGame() {
   selectedDifficulty = difficultySelect.value;
   obstacleSpeed = DIFFICULTY_SPEEDS[selectedDifficulty];
   // 새로운 30초 게임 시작: 점수·위치·아이템·시계를 전부 초기화합니다.
+  cancelReady();
   if (animationId !== null) cancelAnimationFrame(animationId);
+  animationId = null;
   running = false;
   lastFrameAt = null;
   resetPerformance();
@@ -1536,6 +1596,7 @@ function beginGame() {
   gameMode = "safe";
   lastWarPickupAt = null;
   lastWarLockDisplay = "";
+  bankReadyNoticeShown = false;
   warStreakPickups = 0;
   pendingWarBonus = 0;
   securedWarBonus = 0;
@@ -1575,14 +1636,19 @@ function beginGame() {
   timeText.textContent = 30;
   timerProgress.style.width = "100%";
   timerBoard.classList.remove("urgent");
-  gameStartsAt = performance.now();
-  gameEndsAt = gameStartsAt + GAME_DURATION_MS;
+  gameStartsAt = 0;
+  gameEndsAt = 0;
 
   draw();
-  running = true;
+  drawReadyLabels();
+  readyActive = true;
+  readyOverlay.hidden = false;
+  const thisReadyGeneration = ++readyGeneration;
+  readyTimerId = setTimeout(() => {
+    if (readyActive && readyGeneration === thisReadyGeneration) startReadyGame();
+  }, READY_DURATION_MS);
   bgmStartAuthorized = true;
   startBgm(); // START 버튼에서 재생했다면 중복 호출해도 재시작하지 않음
-  animationId = requestAnimationFrame(loop);
 }
 
 // REDESIGN 03: 메인 픽셀 UI와 동일한 어휘의 첫 진입 3색 시퀀스.
@@ -1695,6 +1761,15 @@ window.addEventListener("keydown", event => {
 function restartGame() { startGame(); }
 
 window.addEventListener("keydown", (event) => {
+  if (readyActive && (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code))) {
+    event.preventDefault();
+    if (!event.repeat) {
+      startReadyGame();
+      const readyKey = event.key.toLowerCase();
+      if (readyKey in keys) keys[readyKey] = true;
+    }
+    return; // SPACE skips READY without switching to WAR.
+  }
   if (event.code === "Space" && running) {
     event.preventDefault();
     if (!event.repeat) toggleGameMode(); // 누르고 있는 동안 반복 전환 방지

@@ -16,6 +16,11 @@
       <div id="combo-board" hidden><span class="hud-label">COMBO</span><span id="combo-text">콤보 없음</span><small id="combo-time"></small></div>
       <div id="mode-board" class="safe" hidden aria-live="polite"><span class="hud-label">CURRENT MODE</span><strong id="mode-text">SAFE MODE</strong><small id="bonus-status">SECURED +0</small><small id="danger-status">RISK 0/5 / CHASERS 85px/s</small><small id="war-lock-status" aria-live="off">SPACE : WAR</small></div>
 
+      <div id="ready-overlay" hidden aria-live="polite" aria-label="게임 시작 준비">
+        <span class="ready-top">READY</span>
+        <span class="ready-bottom">WASD 또는 SPACE로 바로 시작</span>
+      </div>
+
       <div id="perf-panel" hidden><span id="perf-text">FPS 측정 중…</span><button id="effect-button" type="button" aria-pressed="true">EFFECTS ON</button></div>
 
       <!-- REDESIGN 03: 첫 진입 3색 인트로를 메인 메뉴와 같은 픽셀 그래픽으로 통일 -->
@@ -92,7 +97,7 @@
         <div class="help-dialog">
           <div class="help-head"><span class="eyebrow">PLAYER MANUAL</span><button id="help-close-button" type="button" aria-label="메인 메뉴로 돌아가기">← BACK</button></div>
           <h2 id="help-title">HOW TO PLAY</h2>
-          <p id="help-intro">노란 아이템을 먹어 점수를 올리고 빨간 추적자를 피하세요.</p>
+          <p id="help-intro">30초 동안 노란 아이템을 모으고, 빨간 적을 피하세요.</p>
           <div class="help-steps">
             <div class="help-step"><span class="help-number">01</span><div class="help-rule-art" aria-hidden="true"><span class="help-blue-square"></span><span class="help-keycaps"><b>W</b><span><b>A</b><b>S</b><b>D</b></span></span></div><div><strong>WASD로 이동</strong><p>노란 아이템을 모으세요. 4초 안에 다시 먹으면 콤보가 이어져요.</p></div></div>
             <div class="help-step"><span class="help-number">02</span><div class="help-rule-art" aria-hidden="true"><span class="help-yellow-diamond"></span><span class="help-rule-plus">+</span><span class="help-blue-square war"></span><span class="help-war-tag">WAR</span></div><div><strong>SPACE로 전쟁 모드 전환</strong><p>획득 점수의 50%를 보너스로 모아요. 먹을수록 적이 빨라져요.</p></div></div>
@@ -125,6 +130,7 @@
                 <span class="pixel-result-score-label">FINAL SCORE</span>
                 <div class="pixel-result-score-line"><strong id="final-score">0</strong><span>PTS</span></div>
                 <p id="result-best-comparison" class="pixel-result-best" role="status">BEST 0 (0)</p>
+                <p id="result-gameplay-tip" hidden>TIP&nbsp; SPACE로 전쟁 모드: 보너스를 쌓고, 확정하기 전에 부딪히면 잃어요.</p>
                 <p id="record-announcement" role="status" hidden></p>
               </section>
               <section class="pixel-result-stats" aria-label="이번 플레이 주요 기록">
@@ -188,7 +194,7 @@
           <div class="reset-actions"><button id="reset-records" type="button">RESET RECORDS</button><button id="reset-wallet" type="button">RESET WALLET</button><button id="reset-all" type="button">RESET ALL</button></div>
           <p id="reset-message" role="status"></p>
           <section class="pixel-build-info" aria-label="빌드 정보">
-            <div><span>VERSION</span><strong id="game-version">v1.2.0</strong></div>
+            <div><span>VERSION</span><strong id="game-version">v1.2.1-test</strong></div>
           </section></div>
       </section>
       <section id="shop-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="shop-title">
