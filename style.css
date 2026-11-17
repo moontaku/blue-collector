@@ -1710,3 +1710,13 @@ html, body { background:#0B0B10 !important; background-image:none !important; }
 @media (prefers-reduced-motion: reduce) {
   #restart-button, #sound-button, #bgm-button { transition: none; }
 }
+
+
+/* v1.2.2-test — Result gameplay tip: wrap long loss guidance within existing score panel. */
+#end-screen #result-gameplay-tip {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}

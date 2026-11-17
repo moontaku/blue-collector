@@ -315,7 +315,7 @@ settingsBgmToggle.addEventListener("click", () => { bgmButton.click(); syncSetti
 syncSettingsAudio();
 
 
-const GAME_VERSION = "v1.2.1-test"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
+const GAME_VERSION = "v1.2.2-test"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
 document.getElementById("game-version").textContent = GAME_VERSION;
 
 const GAME_DURATION_MS = 30_000; // 30초
@@ -709,8 +709,8 @@ function startReadyGame() {
   obstacles.forEach(enemy => registerNearMissEnemy(enemy, gameStartsAt));
   gameEndsAt = gameStartsAt + GAME_DURATION_MS;
   lastFrameAt = null;
-  draw(); // Remove READY labels before the first active frame.
   running = true;
+  draw(gameStartsAt); // GO 후 안내 라벨은 화면에 유지하고 매 프레임 갱신.
   animationId = requestAnimationFrame(loop);
 }
 let score = 0;
@@ -1412,24 +1412,29 @@ function drawObstacleSpawnWarning(now) {
   ctx.restore();
 }
 
-function drawReadyLabels() {
+function drawReadyLabels(now = performance.now()) {
   if (meta.totalRuns >= 3) return;
+  const elapsed = now - gameStartsAt;
+  if (!readyActive && (!running || gameStartsAt <= 0 || elapsed >= 2500)) return;
+  const alpha = readyActive || elapsed <= 2000 ? 1 : Math.max(0, (2500 - elapsed) / 500);
   ctx.save();
+  ctx.globalAlpha *= alpha;
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
-  ctx.font = 'bold 14px "Courier New", monospace';
+  ctx.font = 'bold 14px "Apple SD Gothic Neo", sans-serif';
   ctx.lineWidth = 4;
   ctx.strokeStyle = "#0B0B10";
   function label(text, entity, color) {
-    const x = Math.max(48, Math.min(GAME_WIDTH - 48, entity.x + entity.size / 2));
+    const halfWidth = ctx.measureText(text).width / 2;
+    const x = Math.max(halfWidth + 4, Math.min(GAME_WIDTH - halfWidth - 4, entity.x + entity.size / 2));
     const y = entity.y >= 34 ? entity.y - 15 : Math.min(GAME_HEIGHT - 14, entity.y + entity.size + 16);
     ctx.strokeText(text, x, y);
     ctx.fillStyle = color;
     ctx.fillText(text, x, y);
   }
-  label("YOU", player, "#3976FF");
-  if (!item.collected) label("COLLECT", item, "#F5CF37");
-  if (obstacles.length) label("AVOID", obstacles[0], "#F05252");
+  label("나", player, "#3976FF");
+  if (!item.collected) label("모으세요", item, "#F5CF37");
+  if (obstacles.length) label("피하세요", obstacles[0], "#F05252");
   ctx.restore();
 }
 
@@ -1440,6 +1445,7 @@ function draw(now = performance.now()) {
   drawObstacleSpawnWarning(now);
   drawEnergyCore(now);
   drawPickupEffects(now);
+  drawReadyLabels(now);
 }
 
 function updateTimer(now) {
@@ -1558,7 +1564,17 @@ function finishGame(reason = "time") {
   timerBoard.hidden = true;
   obstacleBoard.hidden = true;
   finalScoreText.textContent = score;
-  document.getElementById("result-gameplay-tip").hidden = !(warPickupCount === 0 && meta.totalRuns <= 5);
+  const gameplayTip = document.getElementById("result-gameplay-tip");
+  if (warPickupCount === 0 && meta.totalRuns <= 5) {
+    gameplayTip.textContent = "TIP  SPACE로 전쟁 모드: 보너스를 쌓고, 확정하기 전에 부딪히면 잃어요.";
+    gameplayTip.hidden = false;
+  } else if (lostWarBonus > 0 && meta.totalRuns <= 10) {
+    gameplayTip.textContent = `TIP  전쟁 보너스 ${lostWarBonus}점을 잃었어요. 마지막 아이템 뒤 2초 버티고 SPACE로 안전 복귀하면 확정돼요.`;
+    gameplayTip.hidden = false;
+  } else {
+    gameplayTip.textContent = "";
+    gameplayTip.hidden = true;
+  }
   // 이전 최고 점수를 기준으로 표시만 계산하며 저장값이나 보상은 변경하지 않습니다.
   const resultBestText = document.getElementById("result-best-comparison");
   resultBestText.textContent = score > previousBest
@@ -1673,10 +1689,11 @@ function beginGame() {
   gameStartsAt = 0;
   gameEndsAt = 0;
 
-  draw();
-  drawReadyLabels();
-  updateModeBoardOcclusion();
   readyActive = true;
+  draw();
+  updateModeBoardOcclusion();
+  readyOverlay.querySelector(".ready-top").textContent = meta.totalRuns < 3
+    ? "READY · 30초 안에 최대한 모으세요" : "READY";
   readyOverlay.hidden = false;
   const thisReadyGeneration = ++readyGeneration;
   readyTimerId = setTimeout(() => {
