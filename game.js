@@ -126,7 +126,7 @@ function trackPerformance(now) {
   const period = now - perfWindowStart;
   if (period >= 1000) {
     const fps = Math.round(perfFrameCount * 1000 / period);
-    const display = `${gameMode === "war" ? "전쟁" : "안전"} FPS ${fps} · 끊김 ${perfLongFrames}회`;
+    const display = `${gameMode === "war" ? "위험" : "안전"} FPS ${fps} · 끊김 ${perfLongFrames}회`;
     if (display !== lastPerfDisplay) {
       perfText.textContent = display;
       lastPerfDisplay = display;
@@ -315,7 +315,7 @@ settingsBgmToggle.addEventListener("click", () => { bgmButton.click(); syncSetti
 syncSettingsAudio();
 
 
-const GAME_VERSION = "v1.2.2-test"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
+const GAME_VERSION = "v1.2.3-test"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
 document.getElementById("game-version").textContent = GAME_VERSION;
 
 const GAME_DURATION_MS = 30_000; // 30초
@@ -356,8 +356,8 @@ const ACHIEVEMENTS = [
   { id: "first", name: "첫 번째 도전", description: "게임 1판 완료" },
   { id: "combo10", name: "콤보 마스터", description: "한 판에서 10콤보 달성" },
   { id: "score1000", name: "고득점 수집가", description: "한 판에서 1,000점 달성" },
-  { id: "war10", name: "위험을 즐기는 자", description: "한 판의 전쟁 모드에서 아이템 10개 획득" },
-  { id: "warfinish", name: "전쟁 생존자", description: "전쟁 아이템을 1개 이상 획득하고 30초 완주" }
+  { id: "war10", name: "위험을 즐기는 자", description: "한 판의 위험 모드에서 아이템 10개 획득" },
+  { id: "warfinish", name: "위험 생존자", description: "위험 모드에서 아이템을 1개 이상 획득하고 30초 완주" }
 ];
 const defaultMeta = () => ({ coins: 0, shields: 0, bestScore: 0, bestWithoutShield: 0, bestCombo: 0, totalRuns: 0, achievements: {} });
 let meta = loadMeta();
@@ -496,7 +496,7 @@ function buyShield() {
   meta.shields += 1;
   saveMeta();
   renderMeta();
-  shopMessage.textContent = "구매 완료! 다음 플레이의 전쟁 모드에서 충돌하면 자동 발동합니다.";
+  shopMessage.textContent = "구매 완료! 다음 플레이의 위험 모드에서 충돌하면 자동 발동합니다.";
 }
 document.getElementById("shop-start-button").addEventListener("click", event => openShop(event.currentTarget));
 document.getElementById("shop-end-button").addEventListener("click", event => openShop(event.currentTarget));
@@ -570,12 +570,82 @@ function prunePickupEffects(now) {
   }
 }
 
+// v1.2.3-test: NEAR MISS canvas feedback, independent of pickup/scoring logic.
+const nearMissEffects = [];
+const NEAR_MISS_EFFECT_DURATION_MS = 800;
+let nearMissHintShown = false; // Page-session only: no storage key.
+function addNearMissEffect(now) {
+  if (!effectsEnabled) return;
+  const showHint = !nearMissHintShown;
+  nearMissHintShown = true;
+  const centerX = player.x + player.size / 2;
+  // Avoid the upper HUD and screen edges; keep the text beside the player.
+  const below = player.y < 180;
+  const baseY = below ? player.y + player.size + 29 : player.y - 27;
+  nearMissEffects.push({ x: centerX, y: baseY, below, createdAt: now, showHint });
+  if (nearMissEffects.length > 8) nearMissEffects.shift();
+}
+function drawNearMissEffects(now) {
+  if (!effectsEnabled) return;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#0B0B10";
+  for (const effect of nearMissEffects) {
+    const t = Math.max(0, Math.min(1, (now - effect.createdAt) / NEAR_MISS_EFFECT_DURATION_MS));
+    ctx.globalAlpha = t < 0.62 ? 1 : Math.max(0, (1 - t) / 0.38);
+    const y = Math.max(18, Math.min(GAME_HEIGHT - 25, effect.y - 25 * t));
+    const title = `NEAR MISS +${NEAR_MISS_POINTS}`;
+    ctx.font = 'bold 22px "Apple SD Gothic Neo", sans-serif';
+    const titleHalf = ctx.measureText(title).width / 2;
+    const x = Math.max(titleHalf + 8, Math.min(GAME_WIDTH - titleHalf - 8, effect.x));
+    ctx.strokeText(title, x, y);
+    ctx.fillStyle = "#6DE5F2";
+    ctx.fillText(title, x, y);
+    if (effect.showHint) {
+      ctx.font = 'bold 12px "Apple SD Gothic Neo", sans-serif';
+      const hint = "적을 아슬하게 지나면 +20";
+      const hintHalf = ctx.measureText(hint).width / 2;
+      const hintX = Math.max(hintHalf + 8, Math.min(GAME_WIDTH - hintHalf - 8, effect.x));
+      const hintY = effect.below ? Math.min(GAME_HEIGHT - 12, y + 21) : Math.max(12, y - 21);
+      ctx.strokeText(hint, hintX, hintY);
+      ctx.fillStyle = "#C5F9FF";
+      ctx.fillText(hint, hintX, hintY);
+    }
+  }
+  ctx.restore();
+}
+function pruneNearMissEffects(now) {
+  for (let i = nearMissEffects.length - 1; i >= 0; i--) {
+    if (now - nearMissEffects[i].createdAt >= NEAR_MISS_EFFECT_DURATION_MS) nearMissEffects.splice(i, 1);
+  }
+}
+
 const keys = {
   w: false,
   a: false,
   s: false,
   d: false,
 };
+const arrowToDirection = { ArrowUp: "w", ArrowLeft: "a", ArrowDown: "s", ArrowRight: "d" };
+const heldWasd = { w: false, a: false, s: false, d: false };
+const heldArrows = { w: false, a: false, s: false, d: false };
+function setMovementInput(event, down) {
+  const arrowDirection = arrowToDirection[event.code];
+  const letter = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d" }[event.code];
+  const direction = arrowDirection || letter || null;
+  if (!direction) return false;
+  if (arrowDirection) heldArrows[direction] = down;
+  else heldWasd[direction] = down;
+  keys[direction] = heldWasd[direction] || heldArrows[direction];
+  return true;
+}
+function clearMovementInput() {
+  for (const direction of ["w", "a", "s", "d"]) {
+    keys[direction] = heldWasd[direction] = heldArrows[direction] = false;
+  }
+}
 
 // STEP 5-2: 전쟁 모드에서는 기본/콤보 점수의 50%를 미확정 보너스로 적립합니다.
 // 안전 모드로 복귀하면 확정되고, 전쟁 중 충돌하면 미확정분만 잃습니다.
@@ -602,7 +672,7 @@ function updateWarLockDisplay(now = performance.now()) {
     showFeedback(`SPACE → 안전 복귀 · +${pendingWarBonus} 확정`, "", "mode-change bank-ready", 950, 3);
   }
   const message = gameMode !== "war"
-    ? "SPACE : WAR"
+    ? "SPACE : RISK"
     : remaining > 0
       ? `LOCK ${(remaining / 1000).toFixed(1)}s`
       : canBank
@@ -637,7 +707,7 @@ let warPickupCount = 0;
 
 function renderGameMode() {
   const isWar = gameMode === "war";
-  modeText.textContent = isWar ? "WAR MODE" : "SAFE MODE";
+  modeText.textContent = isWar ? "RISK MODE" : "SAFE MODE";
   bonusStatus.textContent = isWar
     ? `PENDING +${pendingWarBonus}  /  BONUS 50%`
     : `SECURED +${securedWarBonus}`;
@@ -683,7 +753,7 @@ function toggleGameMode() {
     gameMode = "war";
     lastWarPickupAt = null;
     warStreakPickups = 0;
-    showFeedback("WAR MODE", "아이템 획득 시 2초 생존 · 보너스 +50%", "war mode-change", 800, 2);
+    showFeedback("RISK MODE", "아이템 획득 시 2초 생존 · 보너스 +50%", "war mode-change", 800, 2);
   }
   updateObstacleSpeed();
   renderGameMode();
@@ -989,8 +1059,7 @@ function updateNearMisses(now) {
       nearMissPoints += NEAR_MISS_POINTS;
       score += NEAR_MISS_POINTS; // 기본 점수: 코인에 포함, 콤보/전쟁 보너스에는 제외
       scoreText.textContent = score;
-      // mode-change는 기존 CSS의 작은 우상단 알림 레이아웃을 재사용합니다.
-      showFeedback(`NEAR MISS +${NEAR_MISS_POINTS}`, "", "mode-change", 700, 0);
+      addNearMissEffect(now);
     }
   }
 }
@@ -1140,10 +1209,7 @@ function resetPlayer() {
   placePlayerInCenter();
   player.vx = 0;
   player.vy = 0;
-  keys.w = false;
-  keys.a = false;
-  keys.s = false;
-  keys.d = false;
+  clearMovementInput();
 }
 
 // 속도를 목표 방향으로 점진적으로 변경합니다. dt를 곱하므로 주사율에 의존하지 않습니다.
@@ -1216,7 +1282,7 @@ function update(deltaSeconds, now) {
           keepPlayerInside();
         }
         playTone(740, 0.17, "triangle", 0.07);
-        showFeedback("WAR SHIELD!", "전쟁 모드 충돌 방어 · 미확정 보너스 유지", "safe", 1050, 4);
+        showFeedback("RISK SHIELD!", "위험 모드 충돌 방어 · 미확정 보너스 유지", "safe", 1050, 4);
       } else {
         finishGame("obstacle");
         return;
@@ -1245,9 +1311,9 @@ function update(deltaSeconds, now) {
       renderGameMode();
       const earnedBonus = Math.round(points * WAR_BONUS_RATE);
       if (warStreakPickups !== previousRisk && (warStreakPickups === 3 || warStreakPickups === 5)) {
-        showFeedback(`DANGER UP! +${Math.round(currentWarSpeedBonus()*100)}%`, `WAR BONUS +${earnedBonus} · 미확정 ${pendingWarBonus}`, "war", 1100, 2);
+        showFeedback(`DANGER UP! +${Math.round(currentWarSpeedBonus()*100)}%`, `RISK BONUS +${earnedBonus} · 미확정 ${pendingWarBonus}`, "war", 1100, 2);
       } else {
-        showFeedback(`WAR BONUS +${earnedBonus}`, `미확정 ${pendingWarBonus}점`, "war", 750, 1);
+        showFeedback(`RISK BONUS +${earnedBonus}`, `미확정 ${pendingWarBonus}점`, "war", 750, 1);
       }
     }
     if (combo === 2 || combo === 5 || combo === 10) {
@@ -1445,6 +1511,7 @@ function draw(now = performance.now()) {
   drawObstacleSpawnWarning(now);
   drawEnergyCore(now);
   drawPickupEffects(now);
+  drawNearMissEffects(now);
   drawReadyLabels(now);
 }
 
@@ -1509,7 +1576,7 @@ function finishGame(reason = "time") {
     lostWarBonus += pendingWarBonus;
     pendingWarBonus = 0;
   }
-  bonusResult.textContent = `전쟁 보너스: 확정 +${securedWarBonus}점 · 손실 ${lostWarBonus}점 · 전쟁 아이템 ${warPickupCount}개`;
+  bonusResult.textContent = `위험 보너스: 확정 +${securedWarBonus}점 · 손실 ${lostWarBonus}점 · 위험 아이템 ${warPickupCount}개`;
   nearMissResult.textContent = `NEAR MISS ${nearMissCount}회 +${nearMissPoints}점`;
   // 정산은 finishGame에서 한 번만 수행되므로 점수/코인 중복 지급을 방지합니다.
   // 코인은 확정 전쟁 보너스를 제외한 기본 획득 점수만 지급합니다.
@@ -1532,17 +1599,17 @@ function finishGame(reason = "time") {
   recordAnnouncement.textContent = announcements.join(" · ");
   saveMeta();
   renderMeta();
-  economyResult.textContent = `기본 점수 ${earnedCoinsThisRun}점 → +${earnedCoinsThisRun.toLocaleString("ko-KR")} 코인 · 전쟁 보너스는 코인 제외 · 보유 ${meta.coins.toLocaleString("ko-KR")} 코인 · 최고 기록 ${meta.bestScore}점`;
-  shieldResult.textContent = shieldUsedThisRun ? "SHIELD USED · 미확정 전쟁 보너스 유지" : "SHIELD NOT USED · 무보조 최고 기록 " + meta.bestWithoutShield + "점";
+  economyResult.textContent = `기본 점수 ${earnedCoinsThisRun}점 → +${earnedCoinsThisRun.toLocaleString("ko-KR")} 코인 · 위험 보너스는 코인 제외 · 보유 ${meta.coins.toLocaleString("ko-KR")} 코인 · 최고 기록 ${meta.bestScore}점`;
+  shieldResult.textContent = shieldUsedThisRun ? "SHIELD USED · 미확정 위험 보너스 유지" : "SHIELD NOT USED · 무보조 최고 기록 " + meta.bestWithoutShield + "점";
   playEndSound(reason);
   const survivedSeconds = Math.min(30, Math.max(0, (performance.now() - gameStartsAt) / 1000));
   endStats.textContent = `${selectedDifficulty.toUpperCase()} / ${survivedSeconds.toFixed(1)}s`;
   testRecords.push({ difficulty: selectedDifficulty, score, survival: survivedSeconds, reason, maxCombo, securedBonus: securedWarBonus, lostBonus: lostWarBonus, warPickups: warPickupCount, safeFps: averageFps("safe"), warFps: averageFps("war"), safeJank: perfByMode.safe.longFrames, warJank: perfByMode.war.longFrames, baseScore: score - securedWarBonus, earnedCoins: earnedCoinsThisRun, shieldUsed: shieldUsedThisRun, walletCoins: meta.coins, bestScore: meta.bestScore, game_version: GAME_VERSION, near_miss_count: nearMissCount, near_miss_points: nearMissPoints });
   const performanceResult = document.getElementById("performance-result");
   performanceResult.hidden = !debugMode;
-  if (debugMode) performanceResult.textContent = `성능 측정: 안전 ${averageFps("safe") || "-"} FPS / 전쟁 ${averageFps("war") || "-"} FPS · 50ms 초과 프레임 안전 ${perfByMode.safe.longFrames}회 / 전쟁 ${perfByMode.war.longFrames}회`;
+  if (debugMode) performanceResult.textContent = `성능 측정: 안전 ${averageFps("safe") || "-"} FPS / 위험 ${averageFps("war") || "-"} FPS · 50ms 초과 프레임 안전 ${perfByMode.safe.longFrames}회 / 위험 ${perfByMode.war.longFrames}회`;
   renderTestSummary();
-  playRecords.unshift(`${DIFFICULTY_NAMES[selectedDifficulty]} | ${score}점 | ${survivedSeconds.toFixed(1)}초 | ${reason === "obstacle" ? "장애물 충돌" : "시간 완료"} | 최대 콤보 ${maxCombo}연속 | 전쟁 보너스 +${securedWarBonus}`);
+  playRecords.unshift(`${DIFFICULTY_NAMES[selectedDifficulty]} | ${score}점 | ${survivedSeconds.toFixed(1)}초 | ${reason === "obstacle" ? "장애물 충돌" : "시간 완료"} | 최대 콤보 ${maxCombo}연속 | 위험 보너스 +${securedWarBonus}`);
   if (playRecords.length > 3) playRecords.pop();
   recordList.replaceChildren();
   for (const record of playRecords) {
@@ -1557,7 +1624,7 @@ function finishGame(reason = "time") {
   updateFeedback(performance.now());
   animationId = null;
   lastFrameAt = null;
-  keys.w = keys.a = keys.s = keys.d = false;
+  clearMovementInput();
   player.vx = player.vy = 0;
   restartButton.hidden = true;
   scoreBoard.hidden = true;
@@ -1566,10 +1633,10 @@ function finishGame(reason = "time") {
   finalScoreText.textContent = score;
   const gameplayTip = document.getElementById("result-gameplay-tip");
   if (warPickupCount === 0 && meta.totalRuns <= 5) {
-    gameplayTip.textContent = "TIP  SPACE로 전쟁 모드: 보너스를 쌓고, 확정하기 전에 부딪히면 잃어요.";
+    gameplayTip.textContent = "TIP  SPACE로 위험 모드: 보너스를 쌓고, 확정하기 전에 부딪히면 잃어요.";
     gameplayTip.hidden = false;
   } else if (lostWarBonus > 0 && meta.totalRuns <= 10) {
-    gameplayTip.textContent = `TIP  전쟁 보너스 ${lostWarBonus}점을 잃었어요. 마지막 아이템 뒤 2초 버티고 SPACE로 안전 복귀하면 확정돼요.`;
+    gameplayTip.textContent = `TIP  위험 보너스 ${lostWarBonus}점을 잃었어요. 마지막 아이템 뒤 2초 버티고 SPACE로 안전 복귀하면 확정돼요.`;
     gameplayTip.hidden = false;
   } else {
     gameplayTip.textContent = "";
@@ -1617,6 +1684,7 @@ function loop(now) {
   update(deltaSeconds, now);
   updateModeBoardOcclusion();
   prunePickupEffects(now);
+  pruneNearMissEffects(now);
   updateFeedback(now);
   updateWarLockDisplay(now);
   draw(now);
@@ -1656,6 +1724,7 @@ function beginGame() {
   renderGameMode();
   resetScore();
   pickupEffects.length = 0;
+  nearMissEffects.length = 0;
   resetCombo();
   resetPlayer();
   obstacles.length = 0;
@@ -1817,8 +1886,7 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     if (!event.repeat) {
       startReadyGame();
-      const readyKey = event.key.toLowerCase();
-      if (readyKey in keys) keys[readyKey] = true;
+      if (event.code !== "Space") setMovementInput(event, true);
     }
     return; // SPACE skips READY without switching to WAR.
   }
@@ -1827,18 +1895,11 @@ window.addEventListener("keydown", (event) => {
     if (!event.repeat) toggleGameMode(); // 누르고 있는 동안 반복 전환 방지
     return;
   }
-  const key = event.key.toLowerCase();
-  if (key in keys) {
-    keys[key] = true;
-    event.preventDefault();
-  }
+  if (setMovementInput(event, true)) event.preventDefault();
 });
 
 window.addEventListener("keyup", (event) => {
-  const key = event.key.toLowerCase();
-  if (key in keys) {
-    keys[key] = false;
-  }
+  if (setMovementInput(event, false)) event.preventDefault();
 });
 
 // STEP 6-5.2: 한 번 읽으면 자동으로 다시 뜨지 않는 첫 방문 게임 방법.
@@ -2029,7 +2090,7 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden)startMenuD
 
 // 다른 창으로 전환했을 때 키가 눌린 채로 남지 않도록 처리
 window.addEventListener("blur", () => {
-  keys.w = keys.a = keys.s = keys.d = false;
+  clearMovementInput();
 });
 
 window.addEventListener("resize", () => {
