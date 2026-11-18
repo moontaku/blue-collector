@@ -40,7 +40,7 @@ button:focus-visible,select:focus-visible {outline:3px solid #facc15; outline-of
 #obstacle-board {top:205px; width:148px; padding:10px 14px; font-size:23px;font-weight:850;color:#fda4af;line-height:1.1}
 #combo-board {top:281px; max-width:205px; padding:10px 14px;color:#fde68a;font-size:16px;font-weight:800;background:rgba(97,65,24,.94);border-color:rgba(250,204,21,.3)}
 #combo-board small {display:block;font-size:11px;color:#ffdf91;font-weight:500;margin-top:5px}
-#restart-button,#sound-button {position:absolute;right:20px;z-index:5;min-width:126px;font-size:13px;padding:11px 15px;backdrop-filter:blur(10px)}
+#restart-button,#sound-button {position:absolute;right:20px;z-index:5;min-width:126px;font-size:13px;padding:11px 15px}
 #restart-button {top:18px}
 #sound-button {top:70px;background:#253651;border:1px solid #5a7292}
 #sound-button:hover {background:#334764}
@@ -1786,3 +1786,9 @@ html, body { background:#0B0B10 !important; background-image:none !important; }
     font-size:18px;
   }
 }
+
+
+/* v1.2.4-test: 위험 모드에서 보너스를 확정(SPACE)할 수 있는 순간을 HUD에서 강조 */
+#mode-board #war-lock-status.bank-ready { animation: bankReadyPulse .8s steps(2, jump-none) infinite; }
+@keyframes bankReadyPulse { 0% { color: var(--pix-yellow, #fef08a); } 100% { color: #fff; } }
+@media (prefers-reduced-motion: reduce) { #mode-board #war-lock-status.bank-ready { animation: none; color: #fff; } }
