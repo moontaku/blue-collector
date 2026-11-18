@@ -182,7 +182,7 @@ v1.2.1 ~ v1.2.3은 별도 릴리즈 없이 브랜치로만 올렸고, v1.2.4-tes
 
 ## 7. 플레이 테스트 기록
 
-모두 직접 플레이한 기록이며, 보통 난이도와 보호막 없는 조건입니다. 원본 CSV는 [playtests](https://github.com/moontaku/blue-collector/tree/main/playtests) 폴더에 있습니다.
+아래 표는 제가 직접 플레이한 기록이며, 보통 난이도와 보호막 없는 조건입니다. 원본 CSV는 [playtests](https://github.com/moontaku/blue-collector/tree/main/playtests) 폴더에 있습니다. 다른 사람이 플레이한 기록도 같은 폴더에 익명(A~I)으로 정리해 두었습니다.
 
 | 버전 | 판 수 | 평균 점수 | 30초 완주율 |
 |---|---|---|---|
@@ -222,7 +222,7 @@ v1.2.1 ~ v1.2.3은 별도 릴리즈 없이 브랜치로만 올렸고, v1.2.4-tes
 
 ### 외부 플레이어 테스트 (v1.2.1-test ~ v1.2.3-test)
 
-CSV 8명, 텍스트 후기 5명으로 위 ⑦에 정리했습니다. v1.2.4-test부터 CSV에는 `device_pixel_ratio`, `canvas_css_size`, `hardware_concurrency`, `effects_enabled`, `display_hz` 열이 추가됩니다. 외부 플레이어의 원본 CSV는 익명화해 정리한 뒤 playtests 폴더에 올릴 예정입니다.
+CSV 8명, 텍스트 후기 5명으로 위 ⑦에 정리했습니다. v1.2.4-test부터 CSV에는 `device_pixel_ratio`, `canvas_css_size`, `hardware_concurrency`, `effects_enabled`, `display_hz` 열이 추가됩니다. 외부 플레이어의 원본 CSV는 익명(A~I)으로 [playtests](https://github.com/moontaku/blue-collector/tree/main/playtests) 폴더에 있습니다.
 
 ## 8. 개발 결과와 회고
 
