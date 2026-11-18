@@ -315,7 +315,7 @@ settingsBgmToggle.addEventListener("click", () => { bgmButton.click(); syncSetti
 syncSettingsAudio();
 
 
-const GAME_VERSION = "v1.2.3-test"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
+const GAME_VERSION = "v1.2.4-test"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
 document.getElementById("game-version").textContent = GAME_VERSION;
 
 const GAME_DURATION_MS = 30_000; // 30초
@@ -661,8 +661,9 @@ function remainingWarLockMs(now = performance.now()) {
   return gameMode === "war" && lastWarPickupAt !== null
     ? Math.max(0, WAR_PICKUP_SURVIVAL_MS - (now - lastWarPickupAt)) : 0;
 }
+const warLockStatusElement = document.getElementById("war-lock-status");
 function updateWarLockDisplay(now = performance.now()) {
-  const element = document.getElementById("war-lock-status");
+  const element = warLockStatusElement;
   const remaining = remainingWarLockMs(now);
   const canBank = gameMode === "war" && lastWarPickupAt !== null && remaining === 0 && pendingWarBonus > 0;
   if (!canBank) {
@@ -681,6 +682,7 @@ function updateWarLockDisplay(now = performance.now()) {
   if (message !== lastWarLockDisplay) {
     element.textContent = message;
     element.classList.toggle("locked", remaining > 0);
+    element.classList.toggle("bank-ready", canBank);
     lastWarLockDisplay = message;
   }
 }
@@ -885,13 +887,14 @@ function findObstacleSpawnPosition() {
   if (maxX < 0 || maxY < 0) return false;
 
   const others = [player, ...obstacles];
+  const uiRects = getVisibleUIRects();
   const candidates = [];
   const MIN_DISTANCE = ABSOLUTE_MIN_SPAWN_DISTANCE;
 
   function consider(x, y) {
     const candidate = { x, y, size };
     if (!item.collected && overlapsObstacleWithGap(item, candidate)) return;
-    if (overlapsVisibleUI(candidate)) return;
+    if (overlapsUIRects(candidate, uiRects)) return;
     if (centerDistance(candidate, player) < MIN_DISTANCE) return;
     const nearestDistance = Math.min(...others.map(other => centerDistance(candidate, other)));
     candidates.push({ ...candidate, nearestDistance });
@@ -1066,59 +1069,88 @@ function updateNearMisses(now) {
 
 // 플레이어/적이 실제 HUD 영역 아래에 있을 때 HUD만 반투명하게 표시합니다.
 // Canvas(게임 좌표)와 DOM(HUD 화면 좌표)을 동일한 기준으로 비교합니다.
-function updateModeBoardOcclusion() {
-  const hudBoards = [scoreBoard, comboBoard, obstacleBoard, timerBoard, modeBoard];
-  const controlButtons = [restartButton, soundButton, bgmButton];
+// v1.2.4-test: 매 프레임 읽기/쓰기가 번갈아 일어나 레이아웃을 강제하지 않도록
+// (1) 읽기를 먼저 모두 수행하고 (2) 쓰기는 상태가 바뀔 때만 하며 (3) 프레임 루프에서는 10Hz로 제한합니다.
+const OCCLUSION_INTERVAL_MS = 100;
+let lastOcclusionAt = -Infinity;
+let occlusionBoards = null;
+function updateModeBoardOcclusion(now = performance.now(), force = true) {
+  if (!force && now - lastOcclusionAt < OCCLUSION_INTERVAL_MS) return;
+  lastOcclusionAt = now;
+  if (!occlusionBoards) {
+    const hudBoards = [scoreBoard, comboBoard, obstacleBoard, timerBoard, modeBoard];
+    occlusionBoards = { hudBoards, all: [...hudBoards, restartButton, soundButton, bgmButton] };
+  }
+  const { hudBoards, all } = occlusionBoards;
+  const setOccluded = (board, on) => {
+    if (board.classList.contains("hud-occluded") !== on) board.classList.toggle("hud-occluded", on);
+  };
   if (hudBoards.every(board => board.hidden)) {
-    [...hudBoards, ...controlButtons].forEach(board => board.classList.remove("hud-occluded"));
+    all.forEach(board => setOccluded(board, false));
     return;
   }
   const canvasRect = canvas.getBoundingClientRect();
   const scaleX = canvasRect.width / GAME_WIDTH;
   const scaleY = canvasRect.height / GAME_HEIGHT;
   if (!scaleX || !scaleY) return;
-  for (const board of [...hudBoards, ...controlButtons]) {
-    if (board.hidden) {
-      board.classList.remove("hud-occluded");
-      continue;
-    }
-    const hudRect = board.getBoundingClientRect();
-    const left = (hudRect.left - canvasRect.left) / scaleX;
-    const right = (hudRect.right - canvasRect.left) / scaleX;
-    const top = (hudRect.top - canvasRect.top) / scaleY;
-    const bottom = (hudRect.bottom - canvasRect.top) / scaleY;
-    const overlapsHud = entity =>
-      entity.x < right && entity.x + entity.size > left &&
-      entity.y < bottom && entity.y + entity.size > top;
-    board.classList.toggle("hud-occluded", overlapsHud(player) || obstacles.some(overlapsHud));
+  // 읽기 단계
+  const rects = [];
+  for (const board of all) {
+    if (board.hidden) { rects.push(null); continue; }
+    const r = board.getBoundingClientRect();
+    rects.push({
+      left: (r.left - canvasRect.left) / scaleX,
+      right: (r.right - canvasRect.left) / scaleX,
+      top: (r.top - canvasRect.top) / scaleY,
+      bottom: (r.bottom - canvasRect.top) / scaleY
+    });
   }
+  // 쓰기 단계
+  all.forEach((board, i) => {
+    const rect = rects[i];
+    if (!rect) { setOccluded(board, false); return; }
+    const overlapsHud = entity =>
+      entity.x < rect.right && entity.x + entity.size > rect.left &&
+      entity.y < rect.bottom && entity.y + entity.size > rect.top;
+    setOccluded(board, overlapsHud(player) || obstacles.some(overlapsHud));
+  });
 }
 
 // 아이템은 실제로 보이는 게임 영역에만 생성합니다.
 // 오른쪽 '다시 시작' 버튼과 왼쪽 HUD를 포함해 화면 UI를 피합니다.
-function overlapsVisibleUI(candidate) {
-  const canvasRect = canvas.getBoundingClientRect();
+// v1.2.4-test: getBoundingClientRect 읽기를 후보마다 반복하지 않도록, UI 사각형을 한 번만 읽어 재사용합니다.
+// (후보 위치를 250번 뽑는 동안 DOM은 바뀌지 않으므로 결과는 이전과 동일합니다.)
+// 계산식(가로 스케일 기준)은 기존 overlapsVisibleUI와 동일하게 유지합니다.
+function getVisibleUIRects(canvasRect = canvas.getBoundingClientRect()) {
   const margin = 12;
+  const scale = canvasRect.width / GAME_WIDTH;
   const uiElements = [restartButton, soundButton, scoreBoard, timerBoard, obstacleBoard, comboBoard, modeBoard, perfPanel, effectButton];
-
-  return uiElements.some(element => {
-    if (element.hidden) return false;
+  const rects = [];
+  for (const element of uiElements) {
+    if (element.hidden) continue;
     const rect = element.getBoundingClientRect();
-    const scale = canvasRect.width / GAME_WIDTH;
-    const left = (rect.left - canvasRect.left) / scale - margin;
-    const top = (rect.top - canvasRect.top) / scale - margin;
-    const right = (rect.right - canvasRect.left) / scale + margin;
-    const bottom = (rect.bottom - canvasRect.top) / scale + margin;
-    return candidate.x < right && candidate.x + candidate.size > left &&
-           candidate.y < bottom && candidate.y + candidate.size > top;
-  });
+    rects.push({
+      left: (rect.left - canvasRect.left) / scale - margin,
+      top: (rect.top - canvasRect.top) / scale - margin,
+      right: (rect.right - canvasRect.left) / scale + margin,
+      bottom: (rect.bottom - canvasRect.top) / scale + margin
+    });
+  }
+  return rects;
+}
+function overlapsUIRects(candidate, rects) {
+  return rects.some(r =>
+    candidate.x < r.right && candidate.x + candidate.size > r.left &&
+    candidate.y < r.bottom && candidate.y + candidate.size > r.top);
+}
+function overlapsVisibleUI(candidate) {
+  return overlapsUIRects(candidate, getVisibleUIRects());
 }
 
 // 왼쪽 HUD의 텍스트와 반투명 배경까지 확실히 피하도록
 // 상단 전체를 아이템 생성 금지 구역으로 취급합니다.
 // 실제 HUD의 가장 아래 좌표를 기준으로 계산해 글꼴/창 크기 변화도 반영합니다.
-function getItemSafeTop() {
-  const canvasRect = canvas.getBoundingClientRect();
+function getItemSafeTop(canvasRect = canvas.getBoundingClientRect()) {
   const margin = 20;
   const elements = [scoreBoard, timerBoard, obstacleBoard, comboBoard, modeBoard, restartButton, soundButton];
   const bottoms = elements
@@ -1139,13 +1171,19 @@ function overlapsObstacleWithGap(candidate, obstacle) {
          candidate.y + candidate.size + ITEM_OBSTACLE_GAP > obstacle.y;
 }
 
-function isValidItemLayoutPosition(candidate) {
-  return candidate.y >= getItemSafeTop() &&
-         !overlapsVisibleUI(candidate);
+// 배치 검사에 필요한 DOM 읽기를 한 번에 수행합니다. (세로 safeTop은 height 스케일, UI 사각형은 width 스케일: 기존 계산 유지)
+function getItemPlacementBounds() {
+  const canvasRect = canvas.getBoundingClientRect();
+  return { safeTop: getItemSafeTop(canvasRect), uiRects: getVisibleUIRects(canvasRect) };
 }
 
-function isValidItemPosition(candidate) {
-  return isValidItemLayoutPosition(candidate) &&
+function isValidItemLayoutPosition(candidate, bounds = getItemPlacementBounds()) {
+  return candidate.y >= bounds.safeTop &&
+         !overlapsUIRects(candidate, bounds.uiRects);
+}
+
+function isValidItemPosition(candidate, bounds = getItemPlacementBounds()) {
+  return isValidItemLayoutPosition(candidate, bounds) &&
          !overlaps(player, candidate) &&
          !obstacles.some(obstacle => overlapsObstacleWithGap(candidate, obstacle));
 }
@@ -1165,17 +1203,20 @@ function isPreferredItemPosition(candidate) {
   return true;
 }
 
+const ITEM_RETRY_INTERVAL_MS = 250;
+let lastItemPlacementAt = -Infinity;
 function resetItem() {
   item.collected = false;
   const maxX = Math.max(0, canvas.width - item.size);
   const maxY = Math.max(0, canvas.height - item.size);
   const preferred = [];
   let fallback = null;
+  const bounds = getItemPlacementBounds(); // DOM 읽기는 여기서 한 번만
 
   // 기존 유효 위치 조건(HUD, 플레이어, 적 + 16px)을 반드시 통과한 후보만 사용.
   for (let i = 0; i < ITEM_POSITION_SAMPLES; i++) {
     const candidate = { x: Math.random() * maxX, y: Math.random() * maxY, size: item.size };
-    if (!isValidItemPosition(candidate)) continue;
+    if (!isValidItemPosition(candidate, bounds)) continue;
     if (!fallback) fallback = candidate;
     if (isPreferredItemPosition(candidate)) preferred.push(candidate);
   }
@@ -1193,7 +1234,7 @@ function resetItem() {
   for (let y = 0; y <= maxY; y += step) {
     for (let x = 0; x <= maxX; x += step) {
       const candidate = { x, y, size: item.size };
-      if (isValidItemPosition(candidate)) {
+      if (isValidItemPosition(candidate, bounds)) {
         item.x = x;
         item.y = y;
         return;
@@ -1256,7 +1297,12 @@ function update(deltaSeconds, now) {
   moveObstacles(deltaSeconds);
 
   // 창 크기가 극도로 작아 아이템을 배치하지 못했다면 재시도합니다.
-  if (item.collected) resetItem();
+  // v1.2.4-test: 배치에 실패한 경우 매 프레임 전체 탐색을 반복하지 않도록 250ms 간격으로만 재시도합니다.
+  if (item.collected && now - lastItemPlacementAt >= ITEM_RETRY_INTERVAL_MS) {
+    lastItemPlacementAt = now;
+    resetItem();
+    if (!item.collected) lastItemPlacementAt = -Infinity; // 성공하면 다음 획득 후 즉시 재배치
+  }
 
   // 콤보는 획득 시간 간격으로만 판단합니다. 화면 갱신 속도와 무관합니다.
   expireComboIfNeeded(now);
@@ -1394,26 +1440,66 @@ function drawEnergyCrystal(now) {
   ctx.restore();
 }
 
+// v1.2.4-test: 적을 톱니(가시) 모양으로 변경. 충돌 판정(size x size 사각형)은 그대로이며,
+// 가시 끝은 모두 판정 사각형 경계 위에 놓입니다. 회전하지 않아 그림과 판정이 어긋나지 않습니다.
+const SPIKE_TIPS_PER_SIDE = 3;
+const SPIKE_INNER_RATIO = 0.6;
+const spikeShapeCache = new Map();
+function getSpikeShape(size) {
+  let shape = spikeShapeCache.get(size);
+  if (shape) return shape;
+  const half = size / 2;
+  const total = SPIKE_TIPS_PER_SIDE * 4;
+  const step = size / SPIKE_TIPS_PER_SIDE;
+  const tipAt = k => {
+    const d = k * step; // 좌상단 모서리에서 시계 방향으로 둘레를 따라 이동한 거리
+    if (d < size) return [d - half, -half];
+    if (d < size * 2) return [half, d - size - half];
+    if (d < size * 3) return [half - (d - size * 2), half];
+    return [-half, half - (d - size * 3)];
+  };
+  const points = [];
+  for (let k = 0; k < total; k++) {
+    const [tx, ty] = tipAt(k);
+    const [nx, ny] = tipAt((k + 1) % total);
+    points.push([tx, ty]);
+    points.push([(tx + nx) / 2 * SPIKE_INNER_RATIO, (ty + ny) / 2 * SPIKE_INNER_RATIO]);
+  }
+  shape = points;
+  spikeShapeCache.set(size, shape);
+  return shape;
+}
+function traceSpikes(shape, cx, cy) {
+  ctx.beginPath();
+  shape.forEach(([sx, sy], i) => (i ? ctx.lineTo(cx + sx, cy + sy) : ctx.moveTo(cx + sx, cy + sy)));
+  ctx.closePath();
+}
 function drawSentinel(obstacle, now) {
   const { x, y, size } = obstacle;
   const px = Math.round(x), py = Math.round(y);
+  const cx = px + size / 2, cy = py + size / 2;
+  const shape = getSpikeShape(size);
   const risk = gameMode === "war" ? currentWarSpeedBonus() : 0;
   const dangerAlpha = 0.18 + risk * 0.7;
   ctx.save();
+  // 충돌 영역(사각형)을 아주 옅게 표시해 억울한 판정을 줄입니다.
+  ctx.strokeStyle = "rgba(240,82,82,0.28)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
   ctx.fillStyle = "#6e242b";
-  ctx.fillRect(px + 4, py + 5, size - 4, size - 4);
+  traceSpikes(shape, cx + 2, cy + 3);
+  ctx.fill();
   ctx.fillStyle = "#F05252";
-  ctx.fillRect(px + 2, py + 2, size - 4, size - 4);
+  traceSpikes(shape, cx, cy);
+  ctx.fill();
   ctx.strokeStyle = "#ffb6b6";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(px + 2, py + 2, size - 4, size - 4);
-  ctx.strokeStyle = "#fff1ef";
-  ctx.lineWidth = 4;
-  ctx.lineCap = "butt";
-  ctx.beginPath();
-  ctx.moveTo(px + 15, py + 15); ctx.lineTo(px + size - 15, py + size - 15);
-  ctx.moveTo(px + size - 15, py + 15); ctx.lineTo(px + 15, py + size - 15);
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = "miter";
   ctx.stroke();
+  ctx.fillStyle = "#6e242b";
+  ctx.fillRect(cx - 6, cy - 6, 12, 12);
+  ctx.fillStyle = "#fff1ef";
+  ctx.fillRect(cx - 3, cy - 3, 6, 6);
   if (risk > 0) {
     ctx.strokeStyle = `rgba(240,82,82,${dangerAlpha})`;
     ctx.lineWidth = 1;
@@ -1515,6 +1601,35 @@ function draw(now = performance.now()) {
   drawReadyLabels(now);
 }
 
+// v1.2.4-test: 기기 편차를 분리하기 위한 진단 값(게임 규칙과 무관). 실패해도 게임은 정상 동작합니다.
+let measuredDisplayHz = "";
+function measureDisplayHz() {
+  const deltas = [];
+  let last = null;
+  const sample = t => {
+    if (last !== null) deltas.push(t - last);
+    last = t;
+    if (deltas.length < 40) { requestAnimationFrame(sample); return; }
+    deltas.sort((a, b) => a - b);
+    const median = deltas[Math.floor(deltas.length / 2)];
+    if (median > 0) measuredDisplayHz = Math.round(1000 / median);
+  };
+  try { requestAnimationFrame(sample); } catch (_) { /* 측정 실패 시 빈 값 */ }
+}
+function collectDeviceInfo() {
+  let canvasSize = "";
+  try { canvasSize = `${canvas.clientWidth}x${canvas.clientHeight}`; } catch (_) { /* 빈 값 */ }
+  return {
+    device_pixel_ratio: Math.round((window.devicePixelRatio || 1) * 100) / 100,
+    canvas_css_size: canvasSize,
+    hardware_concurrency: navigator.hardwareConcurrency || "",
+    effects_enabled: effectsEnabled ? "ON" : "OFF",
+    display_hz: measuredDisplayHz
+  };
+}
+measureDisplayHz();
+
+let lastUrgent = null;
 function updateTimer(now) {
   const remainingMs = Math.max(0, gameEndsAt - now);
   const seconds = Math.ceil(remainingMs / 1000);
@@ -1527,7 +1642,11 @@ function updateTimer(now) {
     lastTimerProgressTick = Math.floor(remainingMs / 100);
     timerProgress.style.width = `${progressPercent}%`;
   }
-  timerBoard.classList.toggle("urgent", remainingMs <= 10000);
+  const urgent = remainingMs <= 10000;
+  if (urgent !== lastUrgent) {
+    lastUrgent = urgent;
+    timerBoard.classList.toggle("urgent", urgent);
+  }
   return remainingMs;
 }
 
@@ -1552,9 +1671,9 @@ function renderTestSummary() {
 // 전체 플레이 기록을 엑셀에서도 열 수 있는 UTF-8 CSV 파일로 저장합니다.
 function exportCsv() {
   if (testRecords.length === 0) return;
-  const lines = ["회차,난이도,장애물속도(px/s),최종점수,생존시간(초),종료사유,최대연속획득,확정보너스,손실보너스,전쟁중획득수,안전모드평균FPS,전쟁모드평균FPS,안전모드50ms초과프레임,전쟁모드50ms초과프레임,기본점수(코인기준),획득코인,보호막사용여부,종료시보유코인,개인최고점수,game_version,near_miss_count,near_miss_points"];
+  const lines = ["회차,난이도,장애물속도(px/s),최종점수,생존시간(초),종료사유,최대연속획득,확정보너스,손실보너스,전쟁중획득수,안전모드평균FPS,전쟁모드평균FPS,안전모드50ms초과프레임,전쟁모드50ms초과프레임,기본점수(코인기준),획득코인,보호막사용여부,종료시보유코인,개인최고점수,game_version,near_miss_count,near_miss_points,device_pixel_ratio,canvas_css_size,hardware_concurrency,effects_enabled,display_hz"];
   testRecords.forEach((record, index) => {
-    lines.push([index + 1, DIFFICULTY_NAMES[record.difficulty], DIFFICULTY_SPEEDS[record.difficulty], record.score, record.survival.toFixed(1), record.reason === "time" ? "시간 완료" : "장애물 충돌", record.maxCombo, record.securedBonus, record.lostBonus, record.warPickups, record.safeFps, record.warFps, record.safeJank, record.warJank, record.baseScore, record.earnedCoins, record.shieldUsed ? "사용" : "미사용", record.walletCoins, record.bestScore, record.game_version, record.near_miss_count, record.near_miss_points].join(","));
+    lines.push([index + 1, DIFFICULTY_NAMES[record.difficulty], DIFFICULTY_SPEEDS[record.difficulty], record.score, record.survival.toFixed(1), record.reason === "time" ? "시간 완료" : "장애물 충돌", record.maxCombo, record.securedBonus, record.lostBonus, record.warPickups, record.safeFps, record.warFps, record.safeJank, record.warJank, record.baseScore, record.earnedCoins, record.shieldUsed ? "사용" : "미사용", record.walletCoins, record.bestScore, record.game_version, record.near_miss_count, record.near_miss_points, record.device_pixel_ratio, record.canvas_css_size, record.hardware_concurrency, record.effects_enabled, record.display_hz].join(","));
   });
   const blob = new Blob(["\uFEFF", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -1604,7 +1723,7 @@ function finishGame(reason = "time") {
   playEndSound(reason);
   const survivedSeconds = Math.min(30, Math.max(0, (performance.now() - gameStartsAt) / 1000));
   endStats.textContent = `${selectedDifficulty.toUpperCase()} / ${survivedSeconds.toFixed(1)}s`;
-  testRecords.push({ difficulty: selectedDifficulty, score, survival: survivedSeconds, reason, maxCombo, securedBonus: securedWarBonus, lostBonus: lostWarBonus, warPickups: warPickupCount, safeFps: averageFps("safe"), warFps: averageFps("war"), safeJank: perfByMode.safe.longFrames, warJank: perfByMode.war.longFrames, baseScore: score - securedWarBonus, earnedCoins: earnedCoinsThisRun, shieldUsed: shieldUsedThisRun, walletCoins: meta.coins, bestScore: meta.bestScore, game_version: GAME_VERSION, near_miss_count: nearMissCount, near_miss_points: nearMissPoints });
+  testRecords.push({ difficulty: selectedDifficulty, score, survival: survivedSeconds, reason, maxCombo, securedBonus: securedWarBonus, lostBonus: lostWarBonus, warPickups: warPickupCount, safeFps: averageFps("safe"), warFps: averageFps("war"), safeJank: perfByMode.safe.longFrames, warJank: perfByMode.war.longFrames, baseScore: score - securedWarBonus, earnedCoins: earnedCoinsThisRun, shieldUsed: shieldUsedThisRun, walletCoins: meta.coins, bestScore: meta.bestScore, game_version: GAME_VERSION, near_miss_count: nearMissCount, near_miss_points: nearMissPoints, ...collectDeviceInfo() });
   const performanceResult = document.getElementById("performance-result");
   performanceResult.hidden = !debugMode;
   if (debugMode) performanceResult.textContent = `성능 측정: 안전 ${averageFps("safe") || "-"} FPS / 위험 ${averageFps("war") || "-"} FPS · 50ms 초과 프레임 안전 ${perfByMode.safe.longFrames}회 / 위험 ${perfByMode.war.longFrames}회`;
@@ -1682,7 +1801,7 @@ function loop(now) {
   trackPerformance(now);
   addObstaclesForElapsedTime(now);
   update(deltaSeconds, now);
-  updateModeBoardOcclusion();
+  updateModeBoardOcclusion(now, false);
   prunePickupEffects(now);
   pruneNearMissEffects(now);
   updateFeedback(now);
@@ -1755,6 +1874,7 @@ function beginGame() {
   timeText.textContent = 30;
   timerProgress.style.width = "100%";
   timerBoard.classList.remove("urgent");
+  lastUrgent = false;
   gameStartsAt = 0;
   gameEndsAt = 0;
 
@@ -1935,6 +2055,8 @@ function closeHelp(continueToGame = false) {
   else startButton.focus();
 }
 helpOpenButton.addEventListener("click", () => openHelp(helpOpenButton));
+const helpEndButton = document.getElementById("help-end-button");
+if (helpEndButton) helpEndButton.addEventListener("click", () => openHelp(helpEndButton));
 helpCloseButton.addEventListener("click", closeHelp);
 helpDoneButton.addEventListener("click", () => {
   const shouldStart = startAfterHelp;
