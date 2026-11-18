@@ -14,11 +14,11 @@
       <div id="timer-board" hidden><span class="hud-label">TIME LEFT</span><span><span id="time">30</span><small> s</small></span><span id="timer-track"><span id="timer-progress"></span></span></div>
       <div id="obstacle-board" hidden><span class="hud-label">CHASERS</span><span id="obstacle-count">1</span></div>
       <div id="combo-board" hidden><span class="hud-label">COMBO</span><span id="combo-text">콤보 없음</span><small id="combo-time"></small></div>
-      <div id="mode-board" class="safe" hidden aria-live="polite"><span class="hud-label">CURRENT MODE</span><strong id="mode-text">SAFE MODE</strong><small id="bonus-status">SECURED +0</small><small id="danger-status">RISK 0/5 / CHASERS 85px/s</small><small id="war-lock-status" aria-live="off">SPACE : WAR</small></div>
+      <div id="mode-board" class="safe" hidden aria-live="polite"><span class="hud-label">CURRENT MODE</span><strong id="mode-text">SAFE MODE</strong><small id="bonus-status">SECURED +0</small><small id="danger-status">RISK 0/5 / CHASERS 85px/s</small><small id="war-lock-status" aria-live="off">SPACE : RISK</small></div>
 
       <div id="ready-overlay" hidden aria-live="polite" aria-label="게임 시작 준비">
         <span class="ready-top">READY</span>
-        <span class="ready-bottom">WASD 또는 SPACE로 바로 시작</span>
+        <span class="ready-bottom">WASD·방향키 또는 SPACE로 바로 시작</span>
       </div>
 
       <div id="perf-panel" hidden><span id="perf-text">FPS 측정 중…</span><button id="effect-button" type="button" aria-pressed="true">EFFECTS ON</button></div>
@@ -88,7 +88,7 @@
           <div class="pixel-stage-bottom" aria-hidden="true"><span></span></div>
         </main>
         <footer class="pixel-footer">
-          <span class="pixel-controls-caption"><b>WASD</b> MOVE <b>SPACE</b> WAR MODE</span>
+          <span class="pixel-controls-caption"><b>WASD / ARROWS</b> MOVE <b>SPACE</b> RISK MODE</span>
           <span class="pixel-wallet">COINS <strong id="start-coins">0</strong> <span class="pixel-foot-divider">/</span> SHIELD <strong id="start-shields">0</strong>/3</span>
         </footer>
       </section>
@@ -99,11 +99,11 @@
           <h2 id="help-title">HOW TO PLAY</h2>
           <p id="help-intro">30초 동안 노란 아이템을 모으고, 빨간 적을 피하세요.</p>
           <div class="help-steps">
-            <div class="help-step"><span class="help-number">01</span><div class="help-rule-art" aria-hidden="true"><span class="help-blue-square"></span><span class="help-keycaps"><b>W</b><span><b>A</b><b>S</b><b>D</b></span></span></div><div><strong>WASD로 이동</strong><p>노란 아이템을 모으세요. 4초 안에 다시 먹으면 콤보가 이어져요.</p></div></div>
-            <div class="help-step"><span class="help-number">02</span><div class="help-rule-art" aria-hidden="true"><span class="help-yellow-diamond"></span><span class="help-rule-plus">+</span><span class="help-blue-square war"></span><span class="help-war-tag">WAR</span></div><div><strong>SPACE로 전쟁 모드 전환</strong><p>획득 점수의 50%를 보너스로 모아요. 먹을수록 적이 빨라져요.</p></div></div>
-            <div class="help-step"><span class="help-number">03</span><div class="help-rule-art" aria-hidden="true"><span class="help-red-enemy"></span><span class="help-survive-label">2초 생존</span></div><div><strong>2초 버티고, SPACE로 안전 복귀</strong><p>마지막 전쟁 아이템 획득 후 2초 생존하면 복귀 가능. 복귀 또는 완주 시 보너스가 확정돼요.</p></div></div>
+            <div class="help-step"><span class="help-number">01</span><div class="help-rule-art" aria-hidden="true"><span class="help-blue-square"></span><span class="help-keycaps"><b>W</b><span><b>A</b><b>S</b><b>D</b></span></span></div><div><strong>WASD 또는 방향키로 이동</strong><p>노란 아이템을 모으세요. 4초 안에 다시 먹으면 콤보가 이어져요.</p></div></div>
+            <div class="help-step"><span class="help-number">02</span><div class="help-rule-art" aria-hidden="true"><span class="help-yellow-diamond"></span><span class="help-rule-plus">+</span><span class="help-blue-square war"></span><span class="help-war-tag">RISK</span></div><div><strong>SPACE로 위험 모드 전환</strong><p>획득 점수의 50%를 보너스로 모으지만, 먹을수록 적이 빨라져요.</p></div></div>
+            <div class="help-step"><span class="help-number">03</span><div class="help-rule-art" aria-hidden="true"><span class="help-red-enemy"></span><span class="help-survive-label">2초 생존</span></div><div><strong>2초 버티고, SPACE로 안전 복귀</strong><p>마지막 위험 아이템 획득 후 2초 생존하면 복귀 가능. 복귀 또는 완주 시 보너스가 확정돼요.</p></div></div>
           </div>
-          <p class="help-warning">보호막 없이 전쟁 모드에서 충돌하면 아직 확정하지 않은 보너스는 잃어요.</p>
+          <p class="help-warning">보호막 없이 위험 모드에서 충돌하면 아직 확정하지 않은 보너스는 잃어요.</p>
           <button id="help-done-button" type="button" hidden>START GAME →</button>
           <p class="help-footnote">30초 동안 모으고, 위험을 관리하세요. 게임 방법은 언제든 메인 메뉴에서 다시 볼 수 있어요.</p>
         </div>
@@ -130,7 +130,7 @@
                 <span class="pixel-result-score-label">FINAL SCORE</span>
                 <div class="pixel-result-score-line"><strong id="final-score">0</strong><span>PTS</span></div>
                 <p id="result-best-comparison" class="pixel-result-best" role="status">BEST 0 (0)</p>
-                <p id="result-gameplay-tip" hidden>TIP&nbsp; SPACE로 전쟁 모드: 보너스를 쌓고, 확정하기 전에 부딪히면 잃어요.</p>
+                <p id="result-gameplay-tip" hidden>TIP&nbsp; SPACE로 위험 모드: 보너스를 쌓고, 확정하기 전에 부딪히면 잃어요.</p>
                 <p id="record-announcement" role="status" hidden></p>
               </section>
               <section class="pixel-result-stats" aria-label="이번 플레이 주요 기록">
@@ -138,7 +138,7 @@
                   <span>MAX COMBO</span><strong id="final-combo">0 HIT</strong>
                 </div>
                 <div class="pixel-result-stat">
-                  <span>WAR BONUS</span><strong id="result-war-bonus">+0</strong>
+                  <span>RISK BONUS</span><strong id="result-war-bonus">+0</strong>
                 </div>
                 <div class="pixel-result-stat">
                   <span>COINS EARNED</span><strong id="result-coin-earned">+0</strong>
@@ -165,7 +165,7 @@
               <section class="pixel-result-ledger" aria-label="점수 정산 내역">
                 <h2>SCORE BREAKDOWN</h2>
                 <p id="economy-result">기본 점수 0점 · 0코인 획득</p>
-                <p id="bonus-result">전쟁 보너스: 확정 +0점 · 손실 0점</p>
+                <p id="bonus-result">위험 보너스: 확정 +0점 · 손실 0점</p>
                 <p id="near-miss-result">NEAR MISS 0회 +0점</p>
                 <p id="shield-result">보호막 사용 없음</p>
               </section>
@@ -194,16 +194,16 @@
           <div class="reset-actions"><button id="reset-records" type="button">RESET RECORDS</button><button id="reset-wallet" type="button">RESET WALLET</button><button id="reset-all" type="button">RESET ALL</button></div>
           <p id="reset-message" role="status"></p>
           <section class="pixel-build-info" aria-label="빌드 정보">
-            <div><span>VERSION</span><strong id="game-version">v1.2.2-test</strong></div>
+            <div><span>VERSION</span><strong id="game-version">v1.2.3-test</strong></div>
           </section></div>
       </section>
       <section id="shop-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="shop-title">
         <div class="shop-card">
           <div class="shop-heading"><div><span class="eyebrow">ITEM STATION</span><h2 id="shop-title">ITEM SHOP</h2></div><button id="shop-close-button" type="button" aria-label="메인 메뉴로 돌아가기">← BACK</button></div>
           <div class="shop-wallet"><span>COINS <strong id="shop-coins">0</strong></span><span>SHIELD <strong id="shop-shields">0</strong>/3</span></div>
-          <div class="shop-product"><div class="shop-symbol" aria-label="보호막"><span class="pixel-shield-icon" aria-hidden="true"></span></div><div class="shop-product-info"><strong>1회용 보호막</strong><p>전쟁 모드에서만 충돌 1회 방어 · 발동 후 1초 무적</p><small>한 판에 최대 1개 사용 · 안전 모드 충돌 시 보호막 미소모 · 보너스 유지</small></div></div>
+          <div class="shop-product"><div class="shop-symbol" aria-label="보호막"><span class="pixel-shield-icon" aria-hidden="true"></span></div><div class="shop-product-info"><strong>1회용 보호막</strong><p>위험 모드에서만 충돌 1회 방어 · 발동 후 1초 무적</p><small>한 판에 최대 1개 사용 · 안전 모드 충돌 시 보호막 미소모 · 보너스 유지</small></div></div>
           <div class="shop-purchase"><strong>1,000 C</strong><button id="buy-shield-button" type="button">BUY SHIELD</button></div>
-          <p id="shop-message" role="status">기본 점수만 코인으로 지급해요. 전쟁 보너스는 최종 점수에만 포함됩니다.</p>
+          <p id="shop-message" role="status">기본 점수만 코인으로 지급해요. 위험 보너스는 최종 점수에만 포함됩니다.</p>
           <p class="shop-footnote">코인·보호막·최고 기록은 이 브라우저에 저장됩니다. 다른 기기와 동기화되지 않아요.</p>
         </div>
       </section>

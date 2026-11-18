@@ -1720,3 +1720,69 @@ html, body { background:#0B0B10 !important; background-image:none !important; }
   overflow-wrap: anywhere;
   word-break: keep-all;
 }
+
+
+/* v1.2.3-test — compact, translucent HUD; visual layout only. */
+#score-board, #combo-board, #obstacle-board, #timer-board {
+  height:51px;
+  padding:4px 6px 5px;
+  background:rgba(11,11,16,.55);
+  border-bottom-width:2px;
+  text-shadow:0 1px 3px #08080c, 1px 1px 1px #08080c;
+}
+#score-board { left:18px; width:126px; font-size:24px; }
+#combo-board { left:152px; width:114px; font-size:21px; }
+#obstacle-board { left:274px; width:94px; font-size:23px; }
+#timer-board { left:376px; width:126px; font-size:24px; }
+#score-board .hud-label, #combo-board .hud-label,
+#obstacle-board .hud-label, #timer-board .hud-label {
+  font-size:9px;
+  margin-bottom:3px;
+  text-shadow:0 1px 2px #08080c;
+}
+#combo-board small {font-size:9px;}
+#mode-board, #mode-board.safe, #mode-board.war {
+  top:75px; left:18px; width:484px; height:54px;
+  padding:5px 9px 6px;
+  grid-template-columns:104px 175px minmax(0,1fr);
+  grid-template-rows:13px 20px;
+  row-gap:4px;
+  column-gap:8px;
+  background:rgba(11,11,16,.55);
+  border:1px solid rgba(140,146,160,.28);
+  border-left:3px solid var(--pix-blue);
+  box-shadow:none;
+  text-shadow:0 1px 3px #08080c, 1px 1px 1px #08080c;
+}
+#mode-board.war { background:rgba(42,19,27,.58); border-left:3px solid var(--pix-red); }
+#mode-board .hud-label, #mode-board.war .hud-label {font-size:8px;}
+#mode-board strong, #mode-board.war strong {font-size:17px;}
+#mode-board #bonus-status, #mode-board.war #bonus-status {font-size:11px;}
+#mode-board #danger-status, #mode-board.war #danger-status {font-size:9px;}
+#mode-board #war-lock-status, #mode-board.war #war-lock-status {font-size:9px;}
+#mode-board::after {height:2px;}
+
+/* The game canvas is scaled to narrow viewports; keep HUD lettering legible there. */
+@media (max-width: 500px) {
+  #score-board, #combo-board, #obstacle-board, #timer-board {height:61px;}
+  #score-board {font-size:30px;}
+  #combo-board {font-size:26px;}
+  #obstacle-board {font-size:28px;}
+  #timer-board {font-size:30px;}
+  #score-board .hud-label, #combo-board .hud-label,
+  #obstacle-board .hud-label, #timer-board .hud-label {font-size:18px;letter-spacing:0;}
+  #combo-board small {font-size:12px;}
+  #mode-board, #mode-board.safe, #mode-board.war {
+    top:86px; height:83px;
+    grid-template-rows:18px 23px 21px;
+    row-gap:3px;
+  }
+  #mode-board .hud-label, #mode-board.war .hud-label {font-size:14px;}
+  #mode-board strong, #mode-board.war strong {font-size:19px;}
+  #mode-board #bonus-status, #mode-board.war #bonus-status {font-size:18px;}
+  #mode-board #danger-status, #mode-board.war #danger-status {font-size:14px;}
+  #mode-board #war-lock-status, #mode-board.war #war-lock-status {
+    grid-area:3 / 1 / 4 / 4;
+    font-size:18px;
+  }
+}
