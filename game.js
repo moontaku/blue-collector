@@ -126,7 +126,7 @@ function trackPerformance(now) {
   const period = now - perfWindowStart;
   if (period >= 1000) {
     const fps = Math.round(perfFrameCount * 1000 / period);
-    const display = `${gameMode === "war" ? "전쟁" : "안전"} FPS ${fps} · 끊김 ${perfLongFrames}회`;
+    const display = `${gameMode === "war" ? "위험" : "안전"} FPS ${fps} · 끊김 ${perfLongFrames}회`;
     if (display !== lastPerfDisplay) {
       perfText.textContent = display;
       lastPerfDisplay = display;
@@ -356,8 +356,8 @@ const ACHIEVEMENTS = [
   { id: "first", name: "첫 번째 도전", description: "게임 1판 완료" },
   { id: "combo10", name: "콤보 마스터", description: "한 판에서 10콤보 달성" },
   { id: "score1000", name: "고득점 수집가", description: "한 판에서 1,000점 달성" },
-  { id: "war10", name: "위험을 즐기는 자", description: "한 판의 전쟁 모드에서 아이템 10개 획득" },
-  { id: "warfinish", name: "전쟁 생존자", description: "전쟁 아이템을 1개 이상 획득하고 30초 완주" }
+  { id: "war10", name: "위험을 즐기는 자", description: "한 판의 위험 모드에서 아이템 10개 획득" },
+  { id: "warfinish", name: "위험 생존자", description: "위험 모드에서 아이템을 1개 이상 획득하고 30초 완주" }
 ];
 const defaultMeta = () => ({ coins: 0, shields: 0, bestScore: 0, bestWithoutShield: 0, bestCombo: 0, totalRuns: 0, achievements: {} });
 let meta = loadMeta();
@@ -496,7 +496,7 @@ function buyShield() {
   meta.shields += 1;
   saveMeta();
   renderMeta();
-  shopMessage.textContent = "구매 완료! 다음 플레이의 전쟁 모드에서 충돌하면 자동 발동합니다.";
+  shopMessage.textContent = "구매 완료! 다음 플레이의 위험 모드에서 충돌하면 자동 발동합니다.";
 }
 document.getElementById("shop-start-button").addEventListener("click", event => openShop(event.currentTarget));
 document.getElementById("shop-end-button").addEventListener("click", event => openShop(event.currentTarget));
@@ -570,12 +570,82 @@ function prunePickupEffects(now) {
   }
 }
 
+// v1.2.3-test: NEAR MISS canvas feedback, independent of pickup/scoring logic.
+const nearMissEffects = [];
+const NEAR_MISS_EFFECT_DURATION_MS = 800;
+let nearMissHintShown = false; // Page-session only: no storage key.
+function addNearMissEffect(now) {
+  if (!effectsEnabled) return;
+  const showHint = !nearMissHintShown;
+  nearMissHintShown = true;
+  const centerX = player.x + player.size / 2;
+  // Avoid the upper HUD and screen edges; keep the text beside the player.
+  const below = player.y < 180;
+  const baseY = below ? player.y + player.size + 29 : player.y - 27;
+  nearMissEffects.push({ x: centerX, y: baseY, below, createdAt: now, showHint });
+  if (nearMissEffects.length > 8) nearMissEffects.shift();
+}
+function drawNearMissEffects(now) {
+  if (!effectsEnabled) return;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#0B0B10";
+  for (const effect of nearMissEffects) {
+    const t = Math.max(0, Math.min(1, (now - effect.createdAt) / NEAR_MISS_EFFECT_DURATION_MS));
+    ctx.globalAlpha = t < 0.62 ? 1 : Math.max(0, (1 - t) / 0.38);
+    const y = Math.max(18, Math.min(GAME_HEIGHT - 25, effect.y - 25 * t));
+    const title = `NEAR MISS +${NEAR_MISS_POINTS}`;
+    ctx.font = 'bold 22px "Apple SD Gothic Neo", sans-serif';
+    const titleHalf = ctx.measureText(title).width / 2;
+    const x = Math.max(titleHalf + 8, Math.min(GAME_WIDTH - titleHalf - 8, effect.x));
+    ctx.strokeText(title, x, y);
+    ctx.fillStyle = "#6DE5F2";
+    ctx.fillText(title, x, y);
+    if (effect.showHint) {
+      ctx.font = 'bold 12px "Apple SD Gothic Neo", sans-serif';
+      const hint = "적을 아슬하게 지나면 +20";
+      const hintHalf = ctx.measureText(hint).width / 2;
+      const hintX = Math.max(hintHalf + 8, Math.min(GAME_WIDTH - hintHalf - 8, effect.x));
+      const hintY = effect.below ? Math.min(GAME_HEIGHT - 12, y + 21) : Math.max(12, y - 21);
+      ctx.strokeText(hint, hintX, hintY);
+      ctx.fillStyle = "#C5F9FF";
+      ctx.fillText(hint, hintX, hintY);
+    }
+  }
+  ctx.restore();
+}
+function pruneNearMissEffects(now) {
+  for (let i = nearMissEffects.length - 1; i >= 0; i--) {
+    if (now - nearMissEffects[i].createdAt >= NEAR_MISS_EFFECT_DURATION_MS) nearMissEffects.splice(i, 1);
+  }
+}
+
 const keys = {
   w: false,
   a: false,
   s: false,
   d: false,
 };
+const arrowToDirection = { ArrowUp: "w", ArrowLeft: "a", ArrowDown: "s", ArrowRight: "d" };
+const heldWasd = { w: false, a: false, s: false, d: false };
+const heldArrows = { w: false, a: false, s: false, d: false };
+function setMovementInput(event, down) {
+  const arrowDirection = arrowToDirection[event.code];
+  const letter = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d" }[event.code];
+  const direction = arrowDirection || letter || null;
+  if (!direction) return false;
+  if (arrowDirection) heldArrows[direction] = down;
+  else heldWasd[direction] = down;
+  keys[direction] = heldWasd[direction] || heldArrows[direction];
+  return true;
+}
+function clearMovementInput() {
+  for (const direction of ["w", "a", "s", "d"]) {
+    keys[direction] = heldWasd[direction] = heldArrows[direction] = false;
+  }
+}
 
 // STEP 5-2: 전쟁 모드에서는 기본/콤보 점수의 50%를 미확정 보너스로 적립합니다.
 // 안전 모드로 복귀하면 확정되고, 전쟁 중 충돌하면 미확정분만 잃습니다.
@@ -591,8 +661,9 @@ function remainingWarLockMs(now = performance.now()) {
   return gameMode === "war" && lastWarPickupAt !== null
     ? Math.max(0, WAR_PICKUP_SURVIVAL_MS - (now - lastWarPickupAt)) : 0;
 }
+const warLockStatusElement = document.getElementById("war-lock-status");
 function updateWarLockDisplay(now = performance.now()) {
-  const element = document.getElementById("war-lock-status");
+  const element = warLockStatusElement;
   const remaining = remainingWarLockMs(now);
   const canBank = gameMode === "war" && lastWarPickupAt !== null && remaining === 0 && pendingWarBonus > 0;
   if (!canBank) {
@@ -602,7 +673,7 @@ function updateWarLockDisplay(now = performance.now()) {
     showFeedback(`SPACE → 안전 복귀 · +${pendingWarBonus} 확정`, "", "mode-change bank-ready", 950, 3);
   }
   const message = gameMode !== "war"
-    ? "SPACE : WAR"
+    ? "SPACE : RISK"
     : remaining > 0
       ? `LOCK ${(remaining / 1000).toFixed(1)}s`
       : canBank
@@ -611,6 +682,7 @@ function updateWarLockDisplay(now = performance.now()) {
   if (message !== lastWarLockDisplay) {
     element.textContent = message;
     element.classList.toggle("locked", remaining > 0);
+    element.classList.toggle("bank-ready", canBank);
     lastWarLockDisplay = message;
   }
 }
@@ -637,7 +709,7 @@ let warPickupCount = 0;
 
 function renderGameMode() {
   const isWar = gameMode === "war";
-  modeText.textContent = isWar ? "WAR MODE" : "SAFE MODE";
+  modeText.textContent = isWar ? "RISK MODE" : "SAFE MODE";
   bonusStatus.textContent = isWar
     ? `PENDING +${pendingWarBonus}  /  BONUS 50%`
     : `SECURED +${securedWarBonus}`;
@@ -683,7 +755,7 @@ function toggleGameMode() {
     gameMode = "war";
     lastWarPickupAt = null;
     warStreakPickups = 0;
-    showFeedback("WAR MODE", "아이템 획득 시 2초 생존 · 보너스 +50%", "war mode-change", 800, 2);
+    showFeedback("RISK MODE", "아이템 획득 시 2초 생존 · 보너스 +50%", "war mode-change", 800, 2);
   }
   updateObstacleSpeed();
   renderGameMode();
@@ -815,13 +887,14 @@ function findObstacleSpawnPosition() {
   if (maxX < 0 || maxY < 0) return false;
 
   const others = [player, ...obstacles];
+  const uiRects = getVisibleUIRects();
   const candidates = [];
   const MIN_DISTANCE = ABSOLUTE_MIN_SPAWN_DISTANCE;
 
   function consider(x, y) {
     const candidate = { x, y, size };
     if (!item.collected && overlapsObstacleWithGap(item, candidate)) return;
-    if (overlapsVisibleUI(candidate)) return;
+    if (overlapsUIRects(candidate, uiRects)) return;
     if (centerDistance(candidate, player) < MIN_DISTANCE) return;
     const nearestDistance = Math.min(...others.map(other => centerDistance(candidate, other)));
     candidates.push({ ...candidate, nearestDistance });
@@ -989,67 +1062,95 @@ function updateNearMisses(now) {
       nearMissPoints += NEAR_MISS_POINTS;
       score += NEAR_MISS_POINTS; // 기본 점수: 코인에 포함, 콤보/전쟁 보너스에는 제외
       scoreText.textContent = score;
-      // mode-change는 기존 CSS의 작은 우상단 알림 레이아웃을 재사용합니다.
-      showFeedback(`NEAR MISS +${NEAR_MISS_POINTS}`, "", "mode-change", 700, 0);
+      addNearMissEffect(now);
     }
   }
 }
 
 // 플레이어/적이 실제 HUD 영역 아래에 있을 때 HUD만 반투명하게 표시합니다.
 // Canvas(게임 좌표)와 DOM(HUD 화면 좌표)을 동일한 기준으로 비교합니다.
-function updateModeBoardOcclusion() {
-  const hudBoards = [scoreBoard, comboBoard, obstacleBoard, timerBoard, modeBoard];
-  const controlButtons = [restartButton, soundButton, bgmButton];
+// v1.2.4-test: 매 프레임 읽기/쓰기가 번갈아 일어나 레이아웃을 강제하지 않도록
+// (1) 읽기를 먼저 모두 수행하고 (2) 쓰기는 상태가 바뀔 때만 하며 (3) 프레임 루프에서는 10Hz로 제한합니다.
+const OCCLUSION_INTERVAL_MS = 100;
+let lastOcclusionAt = -Infinity;
+let occlusionBoards = null;
+function updateModeBoardOcclusion(now = performance.now(), force = true) {
+  if (!force && now - lastOcclusionAt < OCCLUSION_INTERVAL_MS) return;
+  lastOcclusionAt = now;
+  if (!occlusionBoards) {
+    const hudBoards = [scoreBoard, comboBoard, obstacleBoard, timerBoard, modeBoard];
+    occlusionBoards = { hudBoards, all: [...hudBoards, restartButton, soundButton, bgmButton] };
+  }
+  const { hudBoards, all } = occlusionBoards;
+  const setOccluded = (board, on) => {
+    if (board.classList.contains("hud-occluded") !== on) board.classList.toggle("hud-occluded", on);
+  };
   if (hudBoards.every(board => board.hidden)) {
-    [...hudBoards, ...controlButtons].forEach(board => board.classList.remove("hud-occluded"));
+    all.forEach(board => setOccluded(board, false));
     return;
   }
   const canvasRect = canvas.getBoundingClientRect();
   const scaleX = canvasRect.width / GAME_WIDTH;
   const scaleY = canvasRect.height / GAME_HEIGHT;
   if (!scaleX || !scaleY) return;
-  for (const board of [...hudBoards, ...controlButtons]) {
-    if (board.hidden) {
-      board.classList.remove("hud-occluded");
-      continue;
-    }
-    const hudRect = board.getBoundingClientRect();
-    const left = (hudRect.left - canvasRect.left) / scaleX;
-    const right = (hudRect.right - canvasRect.left) / scaleX;
-    const top = (hudRect.top - canvasRect.top) / scaleY;
-    const bottom = (hudRect.bottom - canvasRect.top) / scaleY;
-    const overlapsHud = entity =>
-      entity.x < right && entity.x + entity.size > left &&
-      entity.y < bottom && entity.y + entity.size > top;
-    board.classList.toggle("hud-occluded", overlapsHud(player) || obstacles.some(overlapsHud));
+  // 읽기 단계
+  const rects = [];
+  for (const board of all) {
+    if (board.hidden) { rects.push(null); continue; }
+    const r = board.getBoundingClientRect();
+    rects.push({
+      left: (r.left - canvasRect.left) / scaleX,
+      right: (r.right - canvasRect.left) / scaleX,
+      top: (r.top - canvasRect.top) / scaleY,
+      bottom: (r.bottom - canvasRect.top) / scaleY
+    });
   }
+  // 쓰기 단계
+  all.forEach((board, i) => {
+    const rect = rects[i];
+    if (!rect) { setOccluded(board, false); return; }
+    const overlapsHud = entity =>
+      entity.x < rect.right && entity.x + entity.size > rect.left &&
+      entity.y < rect.bottom && entity.y + entity.size > rect.top;
+    setOccluded(board, overlapsHud(player) || obstacles.some(overlapsHud));
+  });
 }
 
 // 아이템은 실제로 보이는 게임 영역에만 생성합니다.
 // 오른쪽 '다시 시작' 버튼과 왼쪽 HUD를 포함해 화면 UI를 피합니다.
-function overlapsVisibleUI(candidate) {
-  const canvasRect = canvas.getBoundingClientRect();
+// v1.2.4-test: getBoundingClientRect 읽기를 후보마다 반복하지 않도록, UI 사각형을 한 번만 읽어 재사용합니다.
+// (후보 위치를 250번 뽑는 동안 DOM은 바뀌지 않으므로 결과는 이전과 동일합니다.)
+// 계산식(가로 스케일 기준)은 기존 overlapsVisibleUI와 동일하게 유지합니다.
+function getVisibleUIRects(canvasRect = canvas.getBoundingClientRect()) {
   const margin = 12;
+  const scale = canvasRect.width / GAME_WIDTH;
   const uiElements = [restartButton, soundButton, scoreBoard, timerBoard, obstacleBoard, comboBoard, modeBoard, perfPanel, effectButton];
-
-  return uiElements.some(element => {
-    if (element.hidden) return false;
+  const rects = [];
+  for (const element of uiElements) {
+    if (element.hidden) continue;
     const rect = element.getBoundingClientRect();
-    const scale = canvasRect.width / GAME_WIDTH;
-    const left = (rect.left - canvasRect.left) / scale - margin;
-    const top = (rect.top - canvasRect.top) / scale - margin;
-    const right = (rect.right - canvasRect.left) / scale + margin;
-    const bottom = (rect.bottom - canvasRect.top) / scale + margin;
-    return candidate.x < right && candidate.x + candidate.size > left &&
-           candidate.y < bottom && candidate.y + candidate.size > top;
-  });
+    rects.push({
+      left: (rect.left - canvasRect.left) / scale - margin,
+      top: (rect.top - canvasRect.top) / scale - margin,
+      right: (rect.right - canvasRect.left) / scale + margin,
+      bottom: (rect.bottom - canvasRect.top) / scale + margin
+    });
+  }
+  return rects;
+}
+function overlapsUIRects(candidate, rects) {
+  return rects.some(r =>
+    candidate.x < r.right && candidate.x + candidate.size > r.left &&
+    candidate.y < r.bottom && candidate.y + candidate.size > r.top);
+}
+function overlapsVisibleUI(candidate) {
+  return overlapsUIRects(candidate, getVisibleUIRects());
 }
 
 // 왼쪽 HUD의 텍스트와 반투명 배경까지 확실히 피하도록
 // 상단 전체를 아이템 생성 금지 구역으로 취급합니다.
 // 실제 HUD의 가장 아래 좌표를 기준으로 계산해 글꼴/창 크기 변화도 반영합니다.
-function getItemSafeTop() {
-  const canvasRect = canvas.getBoundingClientRect();
+function getItemSafeTop(canvasRect = canvas.getBoundingClientRect()) {
   const margin = 20;
   const elements = [scoreBoard, timerBoard, obstacleBoard, comboBoard, modeBoard, restartButton, soundButton];
   const bottoms = elements
@@ -1070,13 +1171,19 @@ function overlapsObstacleWithGap(candidate, obstacle) {
          candidate.y + candidate.size + ITEM_OBSTACLE_GAP > obstacle.y;
 }
 
-function isValidItemLayoutPosition(candidate) {
-  return candidate.y >= getItemSafeTop() &&
-         !overlapsVisibleUI(candidate);
+// 배치 검사에 필요한 DOM 읽기를 한 번에 수행합니다. (세로 safeTop은 height 스케일, UI 사각형은 width 스케일: 기존 계산 유지)
+function getItemPlacementBounds() {
+  const canvasRect = canvas.getBoundingClientRect();
+  return { safeTop: getItemSafeTop(canvasRect), uiRects: getVisibleUIRects(canvasRect) };
 }
 
-function isValidItemPosition(candidate) {
-  return isValidItemLayoutPosition(candidate) &&
+function isValidItemLayoutPosition(candidate, bounds = getItemPlacementBounds()) {
+  return candidate.y >= bounds.safeTop &&
+         !overlapsUIRects(candidate, bounds.uiRects);
+}
+
+function isValidItemPosition(candidate, bounds = getItemPlacementBounds()) {
+  return isValidItemLayoutPosition(candidate, bounds) &&
          !overlaps(player, candidate) &&
          !obstacles.some(obstacle => overlapsObstacleWithGap(candidate, obstacle));
 }
@@ -1096,17 +1203,20 @@ function isPreferredItemPosition(candidate) {
   return true;
 }
 
+const ITEM_RETRY_INTERVAL_MS = 250;
+let lastItemPlacementAt = -Infinity;
 function resetItem() {
   item.collected = false;
   const maxX = Math.max(0, canvas.width - item.size);
   const maxY = Math.max(0, canvas.height - item.size);
   const preferred = [];
   let fallback = null;
+  const bounds = getItemPlacementBounds(); // DOM 읽기는 여기서 한 번만
 
   // 기존 유효 위치 조건(HUD, 플레이어, 적 + 16px)을 반드시 통과한 후보만 사용.
   for (let i = 0; i < ITEM_POSITION_SAMPLES; i++) {
     const candidate = { x: Math.random() * maxX, y: Math.random() * maxY, size: item.size };
-    if (!isValidItemPosition(candidate)) continue;
+    if (!isValidItemPosition(candidate, bounds)) continue;
     if (!fallback) fallback = candidate;
     if (isPreferredItemPosition(candidate)) preferred.push(candidate);
   }
@@ -1124,7 +1234,7 @@ function resetItem() {
   for (let y = 0; y <= maxY; y += step) {
     for (let x = 0; x <= maxX; x += step) {
       const candidate = { x, y, size: item.size };
-      if (isValidItemPosition(candidate)) {
+      if (isValidItemPosition(candidate, bounds)) {
         item.x = x;
         item.y = y;
         return;
@@ -1140,10 +1250,7 @@ function resetPlayer() {
   placePlayerInCenter();
   player.vx = 0;
   player.vy = 0;
-  keys.w = false;
-  keys.a = false;
-  keys.s = false;
-  keys.d = false;
+  clearMovementInput();
 }
 
 // 속도를 목표 방향으로 점진적으로 변경합니다. dt를 곱하므로 주사율에 의존하지 않습니다.
@@ -1190,7 +1297,12 @@ function update(deltaSeconds, now) {
   moveObstacles(deltaSeconds);
 
   // 창 크기가 극도로 작아 아이템을 배치하지 못했다면 재시도합니다.
-  if (item.collected) resetItem();
+  // v1.2.4-test: 배치에 실패한 경우 매 프레임 전체 탐색을 반복하지 않도록 250ms 간격으로만 재시도합니다.
+  if (item.collected && now - lastItemPlacementAt >= ITEM_RETRY_INTERVAL_MS) {
+    lastItemPlacementAt = now;
+    resetItem();
+    if (!item.collected) lastItemPlacementAt = -Infinity; // 성공하면 다음 획득 후 즉시 재배치
+  }
 
   // 콤보는 획득 시간 간격으로만 판단합니다. 화면 갱신 속도와 무관합니다.
   expireComboIfNeeded(now);
@@ -1216,7 +1328,7 @@ function update(deltaSeconds, now) {
           keepPlayerInside();
         }
         playTone(740, 0.17, "triangle", 0.07);
-        showFeedback("WAR SHIELD!", "전쟁 모드 충돌 방어 · 미확정 보너스 유지", "safe", 1050, 4);
+        showFeedback("RISK SHIELD!", "위험 모드 충돌 방어 · 미확정 보너스 유지", "safe", 1050, 4);
       } else {
         finishGame("obstacle");
         return;
@@ -1245,9 +1357,9 @@ function update(deltaSeconds, now) {
       renderGameMode();
       const earnedBonus = Math.round(points * WAR_BONUS_RATE);
       if (warStreakPickups !== previousRisk && (warStreakPickups === 3 || warStreakPickups === 5)) {
-        showFeedback(`DANGER UP! +${Math.round(currentWarSpeedBonus()*100)}%`, `WAR BONUS +${earnedBonus} · 미확정 ${pendingWarBonus}`, "war", 1100, 2);
+        showFeedback(`DANGER UP! +${Math.round(currentWarSpeedBonus()*100)}%`, `RISK BONUS +${earnedBonus} · 미확정 ${pendingWarBonus}`, "war", 1100, 2);
       } else {
-        showFeedback(`WAR BONUS +${earnedBonus}`, `미확정 ${pendingWarBonus}점`, "war", 750, 1);
+        showFeedback(`RISK BONUS +${earnedBonus}`, `미확정 ${pendingWarBonus}점`, "war", 750, 1);
       }
     }
     if (combo === 2 || combo === 5 || combo === 10) {
@@ -1328,26 +1440,66 @@ function drawEnergyCrystal(now) {
   ctx.restore();
 }
 
+// v1.2.4-test: 적을 톱니(가시) 모양으로 변경. 충돌 판정(size x size 사각형)은 그대로이며,
+// 가시 끝은 모두 판정 사각형 경계 위에 놓입니다. 회전하지 않아 그림과 판정이 어긋나지 않습니다.
+const SPIKE_TIPS_PER_SIDE = 3;
+const SPIKE_INNER_RATIO = 0.6;
+const spikeShapeCache = new Map();
+function getSpikeShape(size) {
+  let shape = spikeShapeCache.get(size);
+  if (shape) return shape;
+  const half = size / 2;
+  const total = SPIKE_TIPS_PER_SIDE * 4;
+  const step = size / SPIKE_TIPS_PER_SIDE;
+  const tipAt = k => {
+    const d = k * step; // 좌상단 모서리에서 시계 방향으로 둘레를 따라 이동한 거리
+    if (d < size) return [d - half, -half];
+    if (d < size * 2) return [half, d - size - half];
+    if (d < size * 3) return [half - (d - size * 2), half];
+    return [-half, half - (d - size * 3)];
+  };
+  const points = [];
+  for (let k = 0; k < total; k++) {
+    const [tx, ty] = tipAt(k);
+    const [nx, ny] = tipAt((k + 1) % total);
+    points.push([tx, ty]);
+    points.push([(tx + nx) / 2 * SPIKE_INNER_RATIO, (ty + ny) / 2 * SPIKE_INNER_RATIO]);
+  }
+  shape = points;
+  spikeShapeCache.set(size, shape);
+  return shape;
+}
+function traceSpikes(shape, cx, cy) {
+  ctx.beginPath();
+  shape.forEach(([sx, sy], i) => (i ? ctx.lineTo(cx + sx, cy + sy) : ctx.moveTo(cx + sx, cy + sy)));
+  ctx.closePath();
+}
 function drawSentinel(obstacle, now) {
   const { x, y, size } = obstacle;
   const px = Math.round(x), py = Math.round(y);
+  const cx = px + size / 2, cy = py + size / 2;
+  const shape = getSpikeShape(size);
   const risk = gameMode === "war" ? currentWarSpeedBonus() : 0;
   const dangerAlpha = 0.18 + risk * 0.7;
   ctx.save();
+  // 충돌 영역(사각형)을 아주 옅게 표시해 억울한 판정을 줄입니다.
+  ctx.strokeStyle = "rgba(240,82,82,0.28)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
   ctx.fillStyle = "#6e242b";
-  ctx.fillRect(px + 4, py + 5, size - 4, size - 4);
+  traceSpikes(shape, cx + 2, cy + 3);
+  ctx.fill();
   ctx.fillStyle = "#F05252";
-  ctx.fillRect(px + 2, py + 2, size - 4, size - 4);
+  traceSpikes(shape, cx, cy);
+  ctx.fill();
   ctx.strokeStyle = "#ffb6b6";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(px + 2, py + 2, size - 4, size - 4);
-  ctx.strokeStyle = "#fff1ef";
-  ctx.lineWidth = 4;
-  ctx.lineCap = "butt";
-  ctx.beginPath();
-  ctx.moveTo(px + 15, py + 15); ctx.lineTo(px + size - 15, py + size - 15);
-  ctx.moveTo(px + size - 15, py + 15); ctx.lineTo(px + 15, py + size - 15);
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = "miter";
   ctx.stroke();
+  ctx.fillStyle = "#6e242b";
+  ctx.fillRect(cx - 6, cy - 6, 12, 12);
+  ctx.fillStyle = "#fff1ef";
+  ctx.fillRect(cx - 3, cy - 3, 6, 6);
   if (risk > 0) {
     ctx.strokeStyle = `rgba(240,82,82,${dangerAlpha})`;
     ctx.lineWidth = 1;
@@ -1445,9 +1597,39 @@ function draw(now = performance.now()) {
   drawObstacleSpawnWarning(now);
   drawEnergyCore(now);
   drawPickupEffects(now);
+  drawNearMissEffects(now);
   drawReadyLabels(now);
 }
 
+// v1.2.4-test: 기기 편차를 분리하기 위한 진단 값(게임 규칙과 무관). 실패해도 게임은 정상 동작합니다.
+let measuredDisplayHz = "";
+function measureDisplayHz() {
+  const deltas = [];
+  let last = null;
+  const sample = t => {
+    if (last !== null) deltas.push(t - last);
+    last = t;
+    if (deltas.length < 40) { requestAnimationFrame(sample); return; }
+    deltas.sort((a, b) => a - b);
+    const median = deltas[Math.floor(deltas.length / 2)];
+    if (median > 0) measuredDisplayHz = Math.round(1000 / median);
+  };
+  try { requestAnimationFrame(sample); } catch (_) { /* 측정 실패 시 빈 값 */ }
+}
+function collectDeviceInfo() {
+  let canvasSize = "";
+  try { canvasSize = `${canvas.clientWidth}x${canvas.clientHeight}`; } catch (_) { /* 빈 값 */ }
+  return {
+    device_pixel_ratio: Math.round((window.devicePixelRatio || 1) * 100) / 100,
+    canvas_css_size: canvasSize,
+    hardware_concurrency: navigator.hardwareConcurrency || "",
+    effects_enabled: effectsEnabled ? "ON" : "OFF",
+    display_hz: measuredDisplayHz
+  };
+}
+measureDisplayHz();
+
+let lastUrgent = null;
 function updateTimer(now) {
   const remainingMs = Math.max(0, gameEndsAt - now);
   const seconds = Math.ceil(remainingMs / 1000);
@@ -1460,7 +1642,11 @@ function updateTimer(now) {
     lastTimerProgressTick = Math.floor(remainingMs / 100);
     timerProgress.style.width = `${progressPercent}%`;
   }
-  timerBoard.classList.toggle("urgent", remainingMs <= 10000);
+  const urgent = remainingMs <= 10000;
+  if (urgent !== lastUrgent) {
+    lastUrgent = urgent;
+    timerBoard.classList.toggle("urgent", urgent);
+  }
   return remainingMs;
 }
 
@@ -1485,9 +1671,9 @@ function renderTestSummary() {
 // 전체 플레이 기록을 엑셀에서도 열 수 있는 UTF-8 CSV 파일로 저장합니다.
 function exportCsv() {
   if (testRecords.length === 0) return;
-  const lines = ["회차,난이도,장애물속도(px/s),최종점수,생존시간(초),종료사유,최대연속획득,확정보너스,손실보너스,전쟁중획득수,안전모드평균FPS,전쟁모드평균FPS,안전모드50ms초과프레임,전쟁모드50ms초과프레임,기본점수(코인기준),획득코인,보호막사용여부,종료시보유코인,개인최고점수,game_version,near_miss_count,near_miss_points"];
+  const lines = ["회차,난이도,장애물속도(px/s),최종점수,생존시간(초),종료사유,최대연속획득,확정보너스,손실보너스,전쟁중획득수,안전모드평균FPS,전쟁모드평균FPS,안전모드50ms초과프레임,전쟁모드50ms초과프레임,기본점수(코인기준),획득코인,보호막사용여부,종료시보유코인,개인최고점수,game_version,near_miss_count,near_miss_points,device_pixel_ratio,canvas_css_size,hardware_concurrency,effects_enabled,display_hz"];
   testRecords.forEach((record, index) => {
-    lines.push([index + 1, DIFFICULTY_NAMES[record.difficulty], DIFFICULTY_SPEEDS[record.difficulty], record.score, record.survival.toFixed(1), record.reason === "time" ? "시간 완료" : "장애물 충돌", record.maxCombo, record.securedBonus, record.lostBonus, record.warPickups, record.safeFps, record.warFps, record.safeJank, record.warJank, record.baseScore, record.earnedCoins, record.shieldUsed ? "사용" : "미사용", record.walletCoins, record.bestScore, record.game_version, record.near_miss_count, record.near_miss_points].join(","));
+    lines.push([index + 1, DIFFICULTY_NAMES[record.difficulty], DIFFICULTY_SPEEDS[record.difficulty], record.score, record.survival.toFixed(1), record.reason === "time" ? "시간 완료" : "장애물 충돌", record.maxCombo, record.securedBonus, record.lostBonus, record.warPickups, record.safeFps, record.warFps, record.safeJank, record.warJank, record.baseScore, record.earnedCoins, record.shieldUsed ? "사용" : "미사용", record.walletCoins, record.bestScore, record.game_version, record.near_miss_count, record.near_miss_points, record.device_pixel_ratio, record.canvas_css_size, record.hardware_concurrency, record.effects_enabled, record.display_hz].join(","));
   });
   const blob = new Blob(["\uFEFF", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -1509,7 +1695,7 @@ function finishGame(reason = "time") {
     lostWarBonus += pendingWarBonus;
     pendingWarBonus = 0;
   }
-  bonusResult.textContent = `전쟁 보너스: 확정 +${securedWarBonus}점 · 손실 ${lostWarBonus}점 · 전쟁 아이템 ${warPickupCount}개`;
+  bonusResult.textContent = `위험 보너스: 확정 +${securedWarBonus}점 · 손실 ${lostWarBonus}점 · 위험 아이템 ${warPickupCount}개`;
   nearMissResult.textContent = `NEAR MISS ${nearMissCount}회 +${nearMissPoints}점`;
   // 정산은 finishGame에서 한 번만 수행되므로 점수/코인 중복 지급을 방지합니다.
   // 코인은 확정 전쟁 보너스를 제외한 기본 획득 점수만 지급합니다.
@@ -1532,17 +1718,17 @@ function finishGame(reason = "time") {
   recordAnnouncement.textContent = announcements.join(" · ");
   saveMeta();
   renderMeta();
-  economyResult.textContent = `기본 점수 ${earnedCoinsThisRun}점 → +${earnedCoinsThisRun.toLocaleString("ko-KR")} 코인 · 전쟁 보너스는 코인 제외 · 보유 ${meta.coins.toLocaleString("ko-KR")} 코인 · 최고 기록 ${meta.bestScore}점`;
-  shieldResult.textContent = shieldUsedThisRun ? "SHIELD USED · 미확정 전쟁 보너스 유지" : "SHIELD NOT USED · 무보조 최고 기록 " + meta.bestWithoutShield + "점";
+  economyResult.textContent = `기본 점수 ${earnedCoinsThisRun}점 → +${earnedCoinsThisRun.toLocaleString("ko-KR")} 코인 · 위험 보너스는 코인 제외 · 보유 ${meta.coins.toLocaleString("ko-KR")} 코인 · 최고 기록 ${meta.bestScore}점`;
+  shieldResult.textContent = shieldUsedThisRun ? "SHIELD USED · 미확정 위험 보너스 유지" : "SHIELD NOT USED · 무보조 최고 기록 " + meta.bestWithoutShield + "점";
   playEndSound(reason);
   const survivedSeconds = Math.min(30, Math.max(0, (performance.now() - gameStartsAt) / 1000));
   endStats.textContent = `${selectedDifficulty.toUpperCase()} / ${survivedSeconds.toFixed(1)}s`;
-  testRecords.push({ difficulty: selectedDifficulty, score, survival: survivedSeconds, reason, maxCombo, securedBonus: securedWarBonus, lostBonus: lostWarBonus, warPickups: warPickupCount, safeFps: averageFps("safe"), warFps: averageFps("war"), safeJank: perfByMode.safe.longFrames, warJank: perfByMode.war.longFrames, baseScore: score - securedWarBonus, earnedCoins: earnedCoinsThisRun, shieldUsed: shieldUsedThisRun, walletCoins: meta.coins, bestScore: meta.bestScore, game_version: GAME_VERSION, near_miss_count: nearMissCount, near_miss_points: nearMissPoints });
+  testRecords.push({ difficulty: selectedDifficulty, score, survival: survivedSeconds, reason, maxCombo, securedBonus: securedWarBonus, lostBonus: lostWarBonus, warPickups: warPickupCount, safeFps: averageFps("safe"), warFps: averageFps("war"), safeJank: perfByMode.safe.longFrames, warJank: perfByMode.war.longFrames, baseScore: score - securedWarBonus, earnedCoins: earnedCoinsThisRun, shieldUsed: shieldUsedThisRun, walletCoins: meta.coins, bestScore: meta.bestScore, game_version: GAME_VERSION, near_miss_count: nearMissCount, near_miss_points: nearMissPoints, ...collectDeviceInfo() });
   const performanceResult = document.getElementById("performance-result");
   performanceResult.hidden = !debugMode;
-  if (debugMode) performanceResult.textContent = `성능 측정: 안전 ${averageFps("safe") || "-"} FPS / 전쟁 ${averageFps("war") || "-"} FPS · 50ms 초과 프레임 안전 ${perfByMode.safe.longFrames}회 / 전쟁 ${perfByMode.war.longFrames}회`;
+  if (debugMode) performanceResult.textContent = `성능 측정: 안전 ${averageFps("safe") || "-"} FPS / 위험 ${averageFps("war") || "-"} FPS · 50ms 초과 프레임 안전 ${perfByMode.safe.longFrames}회 / 위험 ${perfByMode.war.longFrames}회`;
   renderTestSummary();
-  playRecords.unshift(`${DIFFICULTY_NAMES[selectedDifficulty]} | ${score}점 | ${survivedSeconds.toFixed(1)}초 | ${reason === "obstacle" ? "장애물 충돌" : "시간 완료"} | 최대 콤보 ${maxCombo}연속 | 전쟁 보너스 +${securedWarBonus}`);
+  playRecords.unshift(`${DIFFICULTY_NAMES[selectedDifficulty]} | ${score}점 | ${survivedSeconds.toFixed(1)}초 | ${reason === "obstacle" ? "장애물 충돌" : "시간 완료"} | 최대 콤보 ${maxCombo}연속 | 위험 보너스 +${securedWarBonus}`);
   if (playRecords.length > 3) playRecords.pop();
   recordList.replaceChildren();
   for (const record of playRecords) {
@@ -1557,7 +1743,7 @@ function finishGame(reason = "time") {
   updateFeedback(performance.now());
   animationId = null;
   lastFrameAt = null;
-  keys.w = keys.a = keys.s = keys.d = false;
+  clearMovementInput();
   player.vx = player.vy = 0;
   restartButton.hidden = true;
   scoreBoard.hidden = true;
@@ -1566,10 +1752,10 @@ function finishGame(reason = "time") {
   finalScoreText.textContent = score;
   const gameplayTip = document.getElementById("result-gameplay-tip");
   if (warPickupCount === 0 && meta.totalRuns <= 5) {
-    gameplayTip.textContent = "TIP  SPACE로 전쟁 모드: 보너스를 쌓고, 확정하기 전에 부딪히면 잃어요.";
+    gameplayTip.textContent = "TIP  SPACE로 위험 모드: 보너스를 쌓고, 확정하기 전에 부딪히면 잃어요.";
     gameplayTip.hidden = false;
   } else if (lostWarBonus > 0 && meta.totalRuns <= 10) {
-    gameplayTip.textContent = `TIP  전쟁 보너스 ${lostWarBonus}점을 잃었어요. 마지막 아이템 뒤 2초 버티고 SPACE로 안전 복귀하면 확정돼요.`;
+    gameplayTip.textContent = `TIP  위험 보너스 ${lostWarBonus}점을 잃었어요. 마지막 아이템 뒤 2초 버티고 SPACE로 안전 복귀하면 확정돼요.`;
     gameplayTip.hidden = false;
   } else {
     gameplayTip.textContent = "";
@@ -1615,8 +1801,9 @@ function loop(now) {
   trackPerformance(now);
   addObstaclesForElapsedTime(now);
   update(deltaSeconds, now);
-  updateModeBoardOcclusion();
+  updateModeBoardOcclusion(now, false);
   prunePickupEffects(now);
+  pruneNearMissEffects(now);
   updateFeedback(now);
   updateWarLockDisplay(now);
   draw(now);
@@ -1656,6 +1843,7 @@ function beginGame() {
   renderGameMode();
   resetScore();
   pickupEffects.length = 0;
+  nearMissEffects.length = 0;
   resetCombo();
   resetPlayer();
   obstacles.length = 0;
@@ -1686,6 +1874,7 @@ function beginGame() {
   timeText.textContent = 30;
   timerProgress.style.width = "100%";
   timerBoard.classList.remove("urgent");
+  lastUrgent = false;
   gameStartsAt = 0;
   gameEndsAt = 0;
 
@@ -1817,8 +2006,7 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     if (!event.repeat) {
       startReadyGame();
-      const readyKey = event.key.toLowerCase();
-      if (readyKey in keys) keys[readyKey] = true;
+      if (event.code !== "Space") setMovementInput(event, true);
     }
     return; // SPACE skips READY without switching to WAR.
   }
@@ -1827,18 +2015,11 @@ window.addEventListener("keydown", (event) => {
     if (!event.repeat) toggleGameMode(); // 누르고 있는 동안 반복 전환 방지
     return;
   }
-  const key = event.key.toLowerCase();
-  if (key in keys) {
-    keys[key] = true;
-    event.preventDefault();
-  }
+  if (setMovementInput(event, true)) event.preventDefault();
 });
 
 window.addEventListener("keyup", (event) => {
-  const key = event.key.toLowerCase();
-  if (key in keys) {
-    keys[key] = false;
-  }
+  if (setMovementInput(event, false)) event.preventDefault();
 });
 
 // STEP 6-5.2: 한 번 읽으면 자동으로 다시 뜨지 않는 첫 방문 게임 방법.
@@ -1874,6 +2055,8 @@ function closeHelp(continueToGame = false) {
   else startButton.focus();
 }
 helpOpenButton.addEventListener("click", () => openHelp(helpOpenButton));
+const helpEndButton = document.getElementById("help-end-button");
+if (helpEndButton) helpEndButton.addEventListener("click", () => openHelp(helpEndButton));
 helpCloseButton.addEventListener("click", closeHelp);
 helpDoneButton.addEventListener("click", () => {
   const shouldStart = startAfterHelp;
@@ -2029,7 +2212,7 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden)startMenuD
 
 // 다른 창으로 전환했을 때 키가 눌린 채로 남지 않도록 처리
 window.addEventListener("blur", () => {
-  keys.w = keys.a = keys.s = keys.d = false;
+  clearMovementInput();
 });
 
 window.addEventListener("resize", () => {
