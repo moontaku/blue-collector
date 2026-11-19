@@ -315,7 +315,7 @@ settingsBgmToggle.addEventListener("click", () => { bgmButton.click(); syncSetti
 syncSettingsAudio();
 
 
-const GAME_VERSION = "v1.2.4-test"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
+const GAME_VERSION = "v1.3.0"; // 표시용 버전. 규칙/CSV/저장 구조와 무관.
 document.getElementById("game-version").textContent = GAME_VERSION;
 
 const GAME_DURATION_MS = 30_000; // 30초
